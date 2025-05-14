@@ -1,4 +1,8 @@
-﻿function get-MGCodeCmdletPermissionsTDO {
+﻿# get-MGCodeCmdletPermissionsTDO.ps1
+
+#region get_MGCodeCmdletPermissionsTDO ; #*------v get-MGCodeCmdletPermissionsTDO v------
+#if(-not (get-childitem function:get-MGCodeCmdletPermissionsTDO -ea 0)){
+    function get-MGCodeCmdletPermissionsTDO {
         <#
         .SYNOPSIS
         get-MGCodeCmdletPermissionsTDO - wrapper for verb-dev\get-codeprofileAST() that parses [verb]-MG[noun] cmdlets from a specified -file or -scriptblock, and reseolves the necessary connect-mgGraph -scope permissions, using the Find-MgGraphCommand  command.
@@ -201,4 +205,6 @@
                 $false | write-output 
             } ; 
         } ; # END-E
-    }
+    } ; 
+#} ; 
+#endregion get_MGCodeCmdletPermissionsTDO ; #*------^ END get-MGCodeCmdletPermissionsTDO ^------
