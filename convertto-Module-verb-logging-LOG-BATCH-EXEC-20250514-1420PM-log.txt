@@ -1,0 +1,246 @@
+﻿2025-05-14 14:20:58 INFO:  : #*======v START PASS:tmp20250514-0206PM.ps1 v======
+2025-05-14 14:20:58 INFO:  : 14:20:58:$ModuleName interpolated from verb-MG.ps1: verb-MG
+2025-05-14 14:20:58 INFO:  : 14:20:58:$ModuleDesc specified: MS Graph module-related functions
+2025-05-14 14:20:58 INFO:  : new-item w
+Name                           Value                                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                                          
+path                           C:\sc\verb-MG                                                                                                                                                                                                                                                  
+ItemType                       Directory                                                                                                                                                                                                                                                      
+whatif                         False
+2025-05-14 14:20:58 INFO:  : (Test-GitHubAuthenticationConfigured:confirmed:GitHub API Token has been configured for this module via Set-GitHubAuthentication)
+2025-05-14 14:20:58 INFO:  : (404:Object Not Found:Get-GitHubRepository -owner tostka -RepositoryName verb-MG)
+2025-05-14 14:20:58 INFO:  : -CreatePublicRepo specified: Creating NON-Private GitHubRepository:
+2025-05-14 14:20:59 INFO:  : Creating New-GitHubRepository w
+Name                           Value                                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                                          
+RepositoryName                 verb-MG                                                                                                                                                                                                                                                        
+Description                    MS Graph module-related functions                                                                                                                                                                                                                              
+LicenseTemplate                MIT                                                                                                                                                                                                                                                            
+Private                        False                                                                                                                                                                                                                                                          
+NoWiki                         True                                                                                                                                                                                                                                                           
+whatif                         False                                                                                                                                                                                                                                                          
+ErrorAction                    0
+2025-05-14 14:21:00 INFO:  : Unconfig'd local dir. Cloning online repo in:
+git clone https://github.com/tostka/verb-MG.git 
+(NOTE:will throw a spurious RemoteException:git : Cloning into 'verb-MG'...)
+2025-05-14 14:21:01 INFO:  : Invoke-Plaster w
+Name                           Value                                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                                          
+TemplatePath                   C:\sc\powershell\FullModuleTemplate\                                                                                                                                                                                                                           
+DestinationPath                C:\sc\verb-MG                                                                                                                                                                                                                                                  
+ModuleName                     verb-MG                                                                                                                                                                                                                                                        
+ModuleDesc                     MS Graph module-related functions                                                                                                                                                                                                                              
+NoLogo                         True
+
+NOTE:Source .psm1|.psd1 etc files are coming from:C:\sc\powershell\FullModuleTemplate\!
+2025-05-14 14:21:01 INFO:  : 
+**IN THE PROMPTS BELOW, USE THE FOLLOWING!**:
+Github Repo Name For This Module:	verb-MG
+Github Repo Url For This Module:	https://github.com/tostka/verb-MG
+
+2025-05-14 14:24:35 INFO:  : (completed Invoke-Plaster pass)
+2025-05-14 14:24:35 INFO:  : Opening a copy of $oModSrcFile:
+C:\sc\powershell\PSScripts\verb-MG.ps1
+for reference
+2025-05-14 14:24:35 INFO:  : Opening a copy of $psmFile:
+(C:\sc\verb-MG\verb-MG\verb-MG.psm1.fullname)
+for EDITING
+2025-05-14 14:24:35 INFO:  : new-item w
+Name                           Value                                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                                          
+path                           C:\sc\verb-MG\Public\get-MGCodeCmdletPermissionsTDO.ps1                                                                                                                                                                                                        
+whatif                         False
+2025-05-14 14:24:35 INFO:  : Pre-populating the get-MGCodeCmdletPermissionsTDO.ps1 with the function body
+(may *not* include associated aliases!)
+2025-05-14 14:24:35 INFO:  : Parsing function list out of C:\sc\powershell\PSScripts\verb-MG.ps1
+use these with FunctionsToExport 'func1', 'func2' at bottom of the .psm1 file
+2025-05-14 14:24:35 INFO:  : Updating manifest .psd1 FunctionsToExport to reflect all functions above:
+(C:\sc\verb-MG\verb-MG\verb-MG.psd1)
+2025-05-14 14:24:36 INFO:  : (patching Psd1 module with proper CompanyName: C:\sc\verb-MG\verb-MG\verb-MG.psd1
+2025-05-14 14:24:36 INFO:  : (patching Psd1 manifest with TRUNCATED 3-digit ModuleVersion - 1.0.0.0 - (4-digit causes publishing errors): C:\sc\verb-MG\verb-MG\verb-MG.psd1
+2025-05-14 14:24:36 INFO:  : (patching Psd1 manifest with TRUNCATED 3-digit ModuleVersion - 1.0.0 - (4-digit causes publishing errors): C:\sc\verb-MG\verb-MG\verb-MG.psm1
+2025-05-14 14:24:36 INFO:  : Copying Psd1 module guid to the Pester Test Script: C:\sc\verb-MG\Tests\verb-MG.tests.ps1
+2025-05-14 14:24:36 INFO:  : (update Test template ModName(s))
+2025-05-14 14:24:36 INFO:  : Opening a copy of the Manifest (.psd1) file:
+C:\sc\verb-MG\verb-MG\verb-MG.psd1
+for EDITING
+2025-05-14 14:24:36 PROMPT:  : Launching immediate conversion from Dyn-include module to Monolitic Merged...
+2025-05-14 14:24:36 INFO:  : ConvertTo-ModuleMergedTDO w
+Name                           Value                                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                                          
+ModuleName                     verb-MG                                                                                                                                                                                                                                                        
+ModuleSourcePath               {C:\sc\verb-MG\Public, C:\sc\verb-MG\Internal}                                                                                                                                                                                                                 
+ModuleDestinationPath          C:\sc\verb-MG\verb-MG                                                                                                                                                                                                                                          
+NoAliasExport                  False                                                                                                                                                                                                                                                          
+LogSpec                        {logging, logfile, transcript}                                                                                                                                                                                                                                 
+ErrorAction                    Stop                                                                                                                                                                                                                                                           
+showdebug                      True                                                                                                                                                                                                                                                           
+whatif                         False
+2025-05-14 14:24:38 INFO:  : Successfully converted verb-MG to a monolithic module 
+2025-05-14 14:26:29 INFO:  : 
+#*------v FOLLOW-ON PROCEDURE v------
+
+1) **Edit the following portion of the verb-MG.psd1 file:**
+
+     - Populate FunctionsToExport,
+    Functions parsed from the C:\sc\powershell\PSScripts\verb-MG.ps1 include:
+    get-MGCodeCmdletPermissionsTDO
+
+    
+
+2) **Copy the public/exported functions from the source .ps1/psm1 into the the matching new function-named files in the Public folder
+  & Internal folders (for non-exported functions) (should have already been completed by this script; confirm accuracy)
+
+2a) Any non-.ps1/.psm1/.psd1 native PS files that are required by the module (csv's, modules, data xmls) should go in a new directory named .\Resource (parallel to Public etc). 
+
+2b) Likewise, any bundled external code licenses should go in a new .\Licenses directory.  - both of these are autodetected and accomodated by update-NewModule(), and Resource contents will be added to the manifest .psd1 FileList key (which will cause them to be bundled into the installable .nupkg).
+
+3) Edit the readme.md file.
+    notepad2.exe C:\sc\verb-MG\README.md
+
+4) Edit the .psm1 file
+    notepad2.exe C:\sc\verb-MG\verb-MG\verb-MG.psm1
+    
+5) Run the Pester Testing script and validate 
+    C:\sc\verb-MG\Tests\verb-MG.tests.ps1
+
+
+
+6) Fix latest GIT ownership conflicts: 
+    - May need to reassign the new Repo directory's ownership to UID
+      (run as SID:s-todd.kadrie@toro.com, seizes ownershp of entire tree back to UID ):
+
+cd c:\sc\ 
+takeown /f . /r /d Y /u TORO\kadrits /s LYN-9C5CTV3
+
+7) Then do a merge, sign, publish (to (lyncRepo), and Pester test pass:
+(run as SID:s-todd.kadrie@toro.com)
+
+cd c:\usr\work\ps\scripts\
+.\processbulk-NewModule.ps1 -Modules "verb-MG" ; 
+
+
+==Following are the component pieces of the encapsulating processbulk-NewModule.ps1/update-NewModule.ps1 processing above:
+
+8) Optionally Merge the default Dyanamic-Include version of the .psm1, to a Monolithic .psm1 (faster loading):
+    .\merge-Module.ps1 -ModuleName verb-MG -ModuleSourcePath "C:\sc\verb-MG\Public","C:\sc\verb-MG\Internal" -ModuleDestinationPath C:\sc\verb-MG\verb-MG -showdebug -whatif ;
+
+9) Sign relevenent files:
+$rgxfiles='\.(CAT|MSI|JAR,OCX|PS1|PSM1|PSD1|PS1XML|PSC1|MSP|CMD|BAT|VBS)$' ;
+$rgxIncludeDirs='\\(Public|Internal|Classes)\\' ;
+$files = gci C:\sc\verb-MG\* -recur |?{$_.extension -match $rgxfiles} | ?{$_.fullname -notmatch $rgxIncludeDirs} ;
+verb-IO\set-AuthenticodeSignatureTDO -file $files.fullname ;
+
+10) Clear any existing copy in $PSProfilePath: (use SID at work w lyncRepo!)
+    remove-item -Recurse -Path C:\Users\kadrits\Documents\WindowsPowerShell\Modules\verb-MG\*.* -whatif ;
+
+11) Then copy the module to the $PSProfilePath: (excluding .git & .vscode subfolders ; use SID at work w lyncRepo!
+
+$from='C:\sc\verb-MG' ; $to = 'C:\Users\kadrits\Documents\WindowsPowerShell\Modules\verb-MG' ;
+ $exclude = @('main.js') ; $excludeMatch = @('.git','.vscode') ;
+[regex] $excludeMatchRegEx = '(?i)' + (($excludeMatch |foreach {[regex]::escape($_)}) -join "|") + '' ;
+Get-ChildItem -Path $from -Recurse -Exclude $exclude |
+where { $excludeMatch -eq $null -or $_.FullName.Replace($from, '') -notmatch $excludeMatchRegEx} |
+Copy-Item -Destination {  if ($_.PSIsContainer) { Join-Path $to $_.Parent.FullName.Substring($from.length) }
+else { Join-Path $to $_.FullName.Substring($from.length) }    } -Force -Exclude $exclude -whatif ;
+
+12) Validate module function (should be visible in the results)
+    Get-Module -ListAvailable -Name verb-MG
+
+13) Exit and restart PS to fully register module (though listed by Get-Module, can see
+    'Publish-Module : ...no module with that name was found in any module directory.'
+    ... errors, until post-restart.epository lyncRepo -Verbose -whatif
+
+
+14)	Publish to the Repo: Verify the repo is present & publish:
+    Get-PSRepository ;
+
+    Publish-Module -Name verb-MG -Repository lyncRepo -Verbose -whatif
+    # or from source dir
+    Publish-Module -Name C:\sc\verb-MG -R
+
+15) Confirm publication: list all the modules in your repo, (or search)
+    Find-Module -Name verb-MG ;
+
+16) Installing mods from the repo:
+
+    Pre-clear all files in local non-installed version in $PSProfilePath: (isn't manageable, use SID at work w lyncRepo!)
+    gci -Recurse -Path "C:\Users\kadrits\Documents\WindowsPowerShell\Modules\verb-MG\*.*" |?{ ! $_.PSIsContainer } | remove-item -whatif ;
+
+    Install the Repo version:
+    Install-Module -Name verb-MG -Repository lyncRepo -scope CurrentUser -AllowClobber -force -whatif ;
+
+===========
+TO FIND & UPDATE DEPENDANT FILES THAT CURRENTLY LEVERAGE verb-MG.ps1, RUN:
+
+gci C:\sc\powershell\*.ps1 -recur | sort name| select-string '\$tModFile\s=\s"verb-MG\.ps1"'
+
+
+For each matching .ps1:
+a) Rem/remove any load block like the above
+b) Above params, at script start, add a suitable #Requires for this updated installed module:
+		#Requires -Modules verb-MG
+    (can be on separate lines, or comma-delimited list of like items).
+    Other Requres directives that may be suitable with this change: (## => Rem'd conflicting variant)
+        ##Requires –Version 2.0
+        #Requires –Version 3
+        #requires -PSEdition Desktop
+        ##requires -PSEdition Core
+        #Requires –PSSnapin Microsoft.Exchange.Management.PowerShell.E2010
+        #Requires -Modules ActiveDirectory,  Azure,  AzureAD,  AzureRM,  GroupPolicy,  Lync,  Microsoft.Online.SharePoint.PowerShell,  MSOnline,  ScheduledTasks,  SkypeOnlineConnector
+        #Requires -RunasAdministrator
+
+===========
+TO BRING UPDATED REPO/MODULE ONTO ANOTHER MACHINE
+
+    a) Clone in the repo from GitHub:
+
+    cd C:\sc\ ;
+    # & Git clone [gh repo https clone url]
+    Git clone https://github.com/tostka/verb-MG.git --porcelain ;
+
+
+    b) Add Repo to GitHubDesktop
+
+    c) Run steps 7-13 above, to install into local repo, and install Module locally onto machine(s) from published Repo
+
+===========
+TO DO FUTURE REVISION UPDATES:
+
+    a) Profile & increment current Psd1 version: -By (Build|Major|Minor|Patch)
+    cd C:\sc\verb-MG ; 
+    import-module buildhelpers ; Set-BuildEnvironment ;
+    Step-ModuleVersion -Path $env:BHPSModuleManifest -By build
+    
+    ==Optionally, all-in-one, Merge & Uninstall/Repub/Reinstall/Test-import script:
+    .\process-NewModule.ps1 -ModuleName "verb-MG" -ModDirPath "C:\sc\verb-MG" -Repository lyncRepo  -Merge -showdebug -whatif ;
+
+    ==Or do one piece at a time:
+    b) Uninstall the existing version (avoids update-module's habit of
+        leaving out of date content in place.)
+
+        Uninstall-Module -Name verb-MG -AllVersions -force -whatif ;
+
+    c) Copy the updated module to the PSProfilePath:
+
+$from='C:\sc\verb-MG' ; $to = 'C:\Users\kadrits\Documents\WindowsPowerShell\Modules\verb-MG' ;
+$exclude = @('main.js') ; $excludeMatch = @('.git','.vscode') ;
+[regex] $excludeMatchRegEx = '(?i)' + (($excludeMatch |foreach {[regex]::escape($_)}) -join "|") + '' ;
+Get-ChildItem -Path $from -Recurse -Exclude $exclude |
+where { $excludeMatch -eq $null -or $_.FullName.Replace($from, '') -notmatch $excludeMatchRegEx} |
+Copy-Item -Destination {  if ($_.PSIsContainer) { Join-Path $to $_.Parent.FullName.Substring($from.length) }
+else { Join-Path $to $_.FullName.Substring($from.length) }    } -Force -Exclude $exclude -whatif ;
+
+
+    d) Republish the updated module:
+
+    Publish-Module -Name verb-MG -Repository lyncRepo -Verbose -whatif
+
+    e) Reinstall from the Repo
+
+    Install-Module -Name verb-MG -Repository lyncRepo -whatif ;
+
+
+#*------^ END FOLLOW-ON PROCEDURE  ^------
+
+
