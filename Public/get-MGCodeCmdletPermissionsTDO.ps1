@@ -96,6 +96,9 @@
         );  
         BEGIN {
             $Verbose = ($VerbosePreference -eq "Continue") ;
+            # MG Cmdlets that don't have perms (don't bother FindMGCommanding them, wastes ~3mins for no return)
+            $MGNonPermCmdlets = 'Find-MgGraphCommand','Connect-MgGraph','Get-MgContext','Confirm-MgDomain','Get-MgDomainServiceConfigurationRecord' ; 
+            [regex]$rgxMGNonPermCmdlets = ('(' + (($MGNonPermCmdlets |%{[regex]::escape($_)}) -join '|') + ')') ;
             if($Cmdlets){
                 $smsg = "-Cmdlets (skipping -path/-scriptblock AST parsing)" ; 
                 if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
@@ -134,10 +137,11 @@
             if($Cmdlets){
                 $smsg = "-cmdlets specified:`n$(($Cmdlets|out-string).trim())" ;                     
             }else{
-                $pltgCPA=[ordered]@{
-                    erroraction = 'STOP' ;  
-                    GenericCommands = $true ;               
-                } ;
+                if($host.version.major -ge 3){$pltgCPA=[ordered]@{Dummy = $null ;} }
+                else {$pltgCPA = @{Dummy = $null ;} } ;
+                if($pltgCPA.keys -contains 'dummy'){$pltgCPA.remove('Dummy') };
+                $pltgCPA.add('erroraction','STOP' ) ;
+                $pltgCPA.add('GenericCommands',$true )  ;
                 if($Path){ $pltgCPA.add('Path',$Path.fullname)}
                 if($ScriptBlock){ $pltgCPA.add('ScriptBlock',$ScriptBlock)}
                 $smsg = "get-CodeProfileAST  w`n$(($pltgCPA|out-string).trim())" ; 
@@ -162,6 +166,14 @@
             } ;               
             if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
             else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            if($Cmdlets | ?{$_ -match $rgxMGNonPermCmdlets}){
+                $smsg = "(Excluding non-Permission MGCmdlets from Permission discovery:" ; 
+                $smsg += "`n$(($Cmdlets | ?{$_ -match $rgxMGNonPermCmdlets}|out-string).trim())`n)" ; 
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                #Levels:Error|Warn|Info|H1|H2|H3|H4|H5|Debug|Verbose|Prompt|Success
+                $Cmdlets = $Cmdlets | ?{$_ -notmatch $rgxMGNonPermCmdlets} ; 
+            } ; 
             write-host -foregroundcolor yellow "Resolving $($cmdlets.count) cmdlets against Find-MgGraphCommand..." ; 
             $PermsRqd = @() ;         
             write-host -foregroundcolor yellow "[" -nonewline ; 
@@ -173,7 +185,8 @@
                 write-host -NoNewline '.' ; 
                 #$PermsRqd += Find-MgGraphCommand -command $thisCmdlet -ea 0| Select -First 1 -ExpandProperty Permissions | Select -Unique name ; 
                 $thisPerm = $null ; 
-                $thisPerm = Find-MgGraphCommand -command $thisCmdlet -ea 0| Select -First 1 -ExpandProperty Permissions | Select -Unique name ; 
+                #$thisPerm = Find-MgGraphCommand -command $thisCmdlet -ea 0| Select -First 1 -ExpandProperty Permissions | Select -Unique name ; 
+                $thisPerm = Find-MgGraphCommand -command $thisCmdlet -ea 0 |?{$_.permissions} | select -expand permissions | Select -Unique name ;   ; 
                 if($thisPerm){
                     $PermsRqd += $thisPerm ; 
                     $smsg = "(Find-MgGraphCommand -command $($thisCmdlet) returned Permissions:`n$(($thisPerm -join ','|out-string).trim()))" ; 
@@ -182,7 +195,6 @@
                 } ; 
                 if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
                 else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
-
             } ; 
             write-host -foregroundcolor yellow "]" ; 
             $PermsRqd = $PermsRqd.name | select -unique ;
@@ -206,5 +218,5 @@
             } ; 
         } ; # END-E
     } ; 
-#} ; 
+} ; 
 #endregion get_MGCodeCmdletPermissionsTDO ; #*------^ END get-MGCodeCmdletPermissionsTDO ^------
