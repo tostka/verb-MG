@@ -1,11 +1,11 @@
-﻿# verb-MG.psm1
+﻿# verb-mg.psm1
 
 
   <#
   .SYNOPSIS
   verb-MG - MS Graph module-related functions
   .NOTES
-    Version     : 1.0.1
+    Version     : 1.0.2
   Author      : Todd Kadrie
   Website     :	https://www.toddomation.com
   Twitter     :	@tostka
@@ -18,7 +18,7 @@
   AddedWebsite:	REFERENCEURL
   AddedTwitter:	@HANDLE / http://twitter.com/HANDLE
   REVISIONS
-  * 5/14/2025 - 1.0.1.0
+  * 5/14/2025 - 1.0.2.0
   .DESCRIPTION
   verb-MG - MS Graph module-related functions
   .PARAMETER  PARAMNAME
@@ -292,8 +292,8 @@ Export-ModuleMember -Function get-MGCodeCmdletPermissionsTDO -Alias *
 # SIG # Begin signature block
 # MIIELgYJKoZIhvcNAQcCoIIEHzCCBBsCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0KjlWUzuc61VbzbqxYVLCMJm
-# UbqgggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU82/anaQlwkJTAjLiBAH38tsm
+# +ZugggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
 # MCwxKjAoBgNVBAMTIVBvd2VyU2hlbGwgTG9jYWwgQ2VydGlmaWNhdGUgUm9vdDAe
 # Fw0xNDEyMjkxNzA3MzNaFw0zOTEyMzEyMzU5NTlaMBUxEzARBgNVBAMTClRvZGRT
 # ZWxmSUkwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBALqRVt7uNweTkZZ+16QG
@@ -308,9 +308,9 @@ Export-ModuleMember -Function get-MGCodeCmdletPermissionsTDO -Alias *
 # AWAwggFcAgEBMEAwLDEqMCgGA1UEAxMhUG93ZXJTaGVsbCBMb2NhbCBDZXJ0aWZp
 # Y2F0ZSBSb290AhBaydK0VS5IhU1Hy6E1KUTpMAkGBSsOAwIaBQCgeDAYBgorBgEE
 # AYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwG
-# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSPaHaj
-# VsRLXFCHlpLvMt2rnD/nxjANBgkqhkiG9w0BAQEFAASBgGG5vGacJ2S9E4DZ3q6/
-# +I+Gh3eZNDusX4LxHxBsh+4z3/DHEuXAH+r1d98WzoNZIykf0VDAQuXyURBYtkDk
-# J1quU+xy0RDvHdBKRYnybSqAnsg1EUz/ftEBISqXU5NjbSEXIJO09tfDkMflMZKt
-# iY4TvUHcoRtbeEopxhRbvcVA
+# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ53c0O
+# sgp2NIT/C0er7TYfzU3x6TANBgkqhkiG9w0BAQEFAASBgE3q0CizBFRN+gVuW+kY
+# HqAr6RENEXFceSjWrfBl8mVNfX/DgJZPIzixSL/o6K4PKCXpV5VT7lqhFXzt8vQM
+# DD0IXaczXbi1jJPgDUYfeF6jC36/9fKF1mAWpRBJeEwyfJn33kGWnnQemIsTXVy5
+# WLiXZZPN2a3GUkb0+ohNt5Dx
 # SIG # End signature block
