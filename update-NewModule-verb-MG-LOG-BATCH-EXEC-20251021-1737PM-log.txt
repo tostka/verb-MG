@@ -1,0 +1,647 @@
+﻿2025-10-21 17:37:25 INFO:  : #*======v VERB-dev.psm1:verb-MG v======
+2025-10-21 17:37:26 VERBOSE:  : $modRoot is blank, assigning from mandetory param:$ModDirPath
+2025-10-21 17:37:27 INFO:  : Run: reset-ModulePublishingDirectory -ModuleName verb-MG
+2025-10-21 17:37:27 ##  : 
+#*------v PROCESSING : verb-MG v------
+2025-10-21 17:37:27 INFO:  : Pre-purge (CHANGELOG|README)\.md$ Root dir matches from :
+2025-10-21 17:37:28 INFO:  : verb-MG resolved $ModPubPath:C:\sc\verb-MG\verb-MG\
+$ModResPath:C:\sc\verb-MG\Resource\
+2025-10-21 17:37:28 VERBOSE:  : Reset module Resource files (purge from C:\sc\verb-MG\verb-MG\)
+2025-10-21 17:37:29 INFO:  : verb-MG resolved $ModPubPath:C:\sc\verb-MG\verb-MG\
+$ModResPath:C:\sc\verb-MG\Licenses\
+2025-10-21 17:37:30 VERBOSE:  : Reset module Licenses files (purge from C:\sc\verb-MG\verb-MG\)
+2025-10-21 17:37:31 INFO:  : verb-MG resolved $ModPubPath:C:\sc\verb-MG\verb-MG\
+$ModResPath:C:\sc\verb-MG\Docs\
+2025-10-21 17:37:31 VERBOSE:  : Reset module Docs files (purge from C:\sc\verb-MG\verb-MG\)
+2025-10-21 17:37:32 INFO:  : ==C:\sc\verb-MG\CHANGELOG.md:
+2025-10-21 17:37:32 INFO:  : ==C:\sc\verb-MG\README.md:
+2025-10-21 17:37:33 INFO:  : ==C:\sc\verb-MG\Docs\Quick-Start-Installation-and-Example.md:
+2025-10-21 17:37:34 ##  : 
+#*------^ PROCESSING : verb-MG ^------
+2025-10-21 17:37:34 INFO:  : Run: populate-ModulePublishingDirectory -ModuleName verb-MG
+2025-10-21 17:37:35 ##  : 
+#*------v PROCESSING : verb-MG v------
+2025-10-21 17:37:36 INFO:  : Locating (CHANGELOG|README)\.md$ Root dir matches from :
+2025-10-21 17:37:36 INFO:  : verb-MG resolved $ModPubPath:C:\sc\verb-MG\verb-MG\
+$ModResPath:C:\sc\verb-MG\Resource\
+2025-10-21 17:37:37 VERBOSE:  : Recopy module Resource files (copy from C:\sc\verb-MG\verb-MG\)
+2025-10-21 17:37:37 INFO:  : verb-MG resolved $ModPubPath:C:\sc\verb-MG\verb-MG\
+$ModResPath:C:\sc\verb-MG\Licenses\
+2025-10-21 17:37:38 VERBOSE:  : Recopy module Licenses files (copy from C:\sc\verb-MG\verb-MG\)
+2025-10-21 17:37:38 INFO:  : verb-MG resolved $ModPubPath:C:\sc\verb-MG\verb-MG\
+$ModResPath:C:\sc\verb-MG\Docs\
+2025-10-21 17:37:39 VERBOSE:  : Recopy module Docs files (copy from C:\sc\verb-MG\verb-MG\)
+2025-10-21 17:37:40 INFO:  : copy-item w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+path                           {C:\sc\verb-MG\CHANGELOG.md, C:\sc\verb-MG\README.md, C:\sc\verb-MG\Docs\Quick-Start-Installation-and-Example.md}                                                                                                                              
+destination                    C:\sc\verb-MG\verb-MG\                                                                                                                                                                                                                         
+force                          True                                                                                                                                                                                                                                           
+erroraction                    STOP                                                                                                                                                                                                                                           
+verbose                        True                                                                                                                                                                                                                                           
+whatif                         False
+--$pltCI.path:
+C:\sc\verb-MG\CHANGELOG.md
+C:\sc\verb-MG\README.md
+C:\sc\verb-MG\Docs\Quick-Start-Installation-and-Example.md
+2025-10-21 17:37:41 ##  : 
+#*------^ PROCESSING : verb-MG ^------
+2025-10-21 17:37:42 INFO:  : Run: Remove any non-pub garbage cp'd into c:\sc\verb-MG\verb-MG -ModuleName verb-MG
+2025-10-21 17:37:43 INFO:  : Validate updated verb-MG\verb-MG dir contents against Manifest:
+Run: test-modulemanifest -Path C:\sc\verb-MG\verb-MG\verb-MG.psd1
+2025-10-21 17:37:44 VERBOSE:  : (no $ttmm_Err: test-ModuleManifest had no errors)
+2025-10-21 17:37:45 INFO:  : NON-Republish pass detected:
+MERGE parm specified as well:`n-Merge Public|Internal|Classes include subdirs module content into updated .psm1
+-Sign updated files.
+-Uninstall/Remove existing profile module
+-Copy new module to profile
+-Confirm: Get-Module -ListAvailable
+-Check/Update existing Psd1 Version
+-Publish-Module
+-Remove existing installed profile module
+-Test Install-Module
+-Test Import-Module
+2025-10-21 17:37:47 INFO:  : -Merge specified...
+2025-10-21 17:37:48 INFO:  : ConvertTo-ModuleMergedTDO w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+ModuleName                     verb-MG                                                                                                                                                                                                                                        
+ModuleSourcePath               {c:\sc\verb-MG\Public, c:\sc\verb-MG\Internal}                                                                                                                                                                                                 
+ModuleDestinationPath          c:\sc\verb-MG\verb-MG                                                                                                                                                                                                                          
+RequiredVersion                1.0.3                                                                                                                                                                                                                                          
+LogSpec                        {logging, logfile, transcript}                                                                                                                                                                                                                 
+NoAliasExport                                                                                                                                                                                                                                                                 
+ErrorAction                    Stop                                                                                                                                                                                                                                           
+showdebug                      False                                                                                                                                                                                                                                          
+whatif                         False
+2025-10-21 17:37:49 INFO:  : ConvertTo-ModuleMergedTDO w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+ModuleName                     verb-MG                                                                                                                                                                                                                                        
+ModuleSourcePath               {c:\sc\verb-MG\Public, c:\sc\verb-MG\Internal}                                                                                                                                                                                                 
+ModuleDestinationPath          c:\sc\verb-MG\verb-MG                                                                                                                                                                                                                          
+RequiredVersion                1.0.3                                                                                                                                                                                                                                          
+LogSpec                        {logging, logfile, transcript}                                                                                                                                                                                                                 
+NoAliasExport                                                                                                                                                                                                                                                                 
+ErrorAction                    Stop                                                                                                                                                                                                                                           
+showdebug                      False                                                                                                                                                                                                                                          
+whatif                         False
+2025-10-21 17:37:49 INFO:  : (NON-dyn psm1 detected - purging existing non-CBH content...)
+2025-10-21 17:37:50 INFO:  : Initialize-PSModuleDirectories w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+ModuleSourcePath               {c:\sc\verb-MG\Public, c:\sc\verb-MG\Internal}                                                                                                                                                                                                 
+ModuleDestinationPath          c:\sc\verb-MG\verb-MG                                                                                                                                                                                                                          
+ErrorAction                    Stop                                                                                                                                                                                                                                           
+whatif                         False
+2025-10-21 17:37:51 INFO:  : 
+#*------v (1/2):C:\sc\verb-MG\Public v------
+2025-10-21 17:37:51 INFO:  : Processing 1 $ComponentScripts files through Remove-AuthenticodeSignature...
+2025-10-21 17:37:52 INFO:  : Remove-AuthenticodeSignature w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Path                           C:\sc\verb-MG\Public\get-MGCodeCmdletPermissionsTDO.ps1                                                                                                                                                                                        
+whatif                         False                                                                                                                                                                                                                                          
+verbose                        True
+2025-10-21 17:37:52 INFO:  : Processing (1/1):C:\sc\verb-MG\Public\get-MGCodeCmdletPermissionsTDO.ps1...
+2025-10-21 17:37:53 INFO:  : 
+#*------^ (1/2):C:\sc\verb-MG\Public ^------
+2025-10-21 17:37:53 INFO:  : 
+#*------v (2/2):C:\sc\verb-MG\Internal v------
+2025-10-21 17:37:54 INFO:  : Processing 0 $ComponentScripts files through Remove-AuthenticodeSignature...
+2025-10-21 17:37:55 INFO:  : Remove-AuthenticodeSignature w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Path                                                                                                                                                                                                                                                                          
+whatif                         False                                                                                                                                                                                                                                          
+verbose                        True
+2025-10-21 17:37:56 INFO:  : 
+#*------^ (2/2):C:\sc\verb-MG\Internal ^------
+2025-10-21 17:37:57 INFO:  : (Updating Psm1 Export-ModuleMember -Function to reflect Public modules)
+2025-10-21 17:37:58 INFO:  : Adding:FooterBlock...
+2025-10-21 17:37:59 INFO:  : Updating the Psd1 FunctionsToExport to match
+2025-10-21 17:38:00 INFO:  : confirm-ModuleBuildSync w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+ModPsdPath                     c:\sc\verb-MG\verb-MG\verb-MG.psd1_TMP                                                                                                                                                                                                         
+RequiredVersion                1.0.3                                                                                                                                                                                                                                          
+NoTest                         True                                                                                                                                                                                                                                           
+whatif                         False                                                                                                                                                                                                                                          
+verbose                        True
+2025-10-21 17:38:00 INFO:  : #*======v confirm-ModuleBuildSync:  v======
+2025-10-21 17:38:01 INFO:  : (test-path confirms $ModPsm1 & $ModTestPs1)
+2025-10-21 17:38:02 INFO:  : Import-PowerShellDataFile w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Path                           c:\sc\verb-MG\verb-MG\verb-MG.psd1_TMP                                                                                                                                                                                                         
+ErrorAction                    Stop                                                                                                                                                                                                                                           
+verbose                        True
+2025-10-21 17:38:02 INFO:  : (resolved Module attributes:
+$ModuleName:	verb-MG
+$ModRoot:	c:\sc\verb-MG
+$ModPsd1:	c:\sc\verb-MG\verb-MG\verb-MG.psd1_TMP
+$ModPsm1:	c:\sc\verb-MG\verb-MG\verb-MG.psm1_TMP
+$ModTestPs1:	c:\sc\verb-MG\Tests\verb-MG.tests.ps1
+$psd1Vers:	1.0.3
+$psd1guid:	ac3050f2-8b1c-4dca-b2e1-3cd3efeb607b)
+2025-10-21 17:38:03 INFO:  : confirm-ModulePsd1Version w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Path                           c:\sc\verb-MG\verb-MG\verb-MG.psd1_TMP                                                                                                                                                                                                         
+RequiredVersion                1.0.3                                                                                                                                                                                                                                          
+whatif                         False                                                                                                                                                                                                                                          
+verbose                        True
+2025-10-21 17:38:03 INFO:  : #*======v confirm-ModulePsd1Version: c:\sc\verb-MG\verb-MG\verb-MG.psd1_TMP v======
+2025-10-21 17:38:04 INFO:  : (Version already updated to match)
+2025-10-21 17:38:04 INFO:  : $objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Version                        1.0.3                                                                                                                                                                                                                                          
+Valid                          False
+2025-10-21 17:38:05 INFO:  : (SET:$objReport.Valid = $true ;)
+2025-10-21 17:38:06 INFO:  : (PIPELINE:New-Object PSObject -Property $objReport | write-output)
+$objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Version                        1.0.3                                                                                                                                                                                                                                          
+Valid                          True
+2025-10-21 17:38:06 INFO:  : #*======^ confirm-ModulePsd1Version: c:\sc\verb-MG\verb-MG\verb-MG.psd1_TMP ^======
+2025-10-21 17:38:07 INFO:  : (confirm-ModulePsd1Version:Success)
+2025-10-21 17:38:07 INFO:  : confirm-ModulePsm1Version w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Path                           c:\sc\verb-MG\verb-MG\verb-MG.psm1_TMP                                                                                                                                                                                                         
+RequiredVersion                1.0.3                                                                                                                                                                                                                                          
+whatif                         False                                                                                                                                                                                                                                          
+verbose                        True
+2025-10-21 17:38:08 INFO:  : #*======v confirm-ModulePsm1Version: c:\sc\verb-MG\verb-MG\verb-MG.psm1_TMP v======
+2025-10-21 17:38:09 WARNING:  : In:c:\sc\verb-MG\verb-MG\verb-MG.psm1_TMP
+Version present:(1.0.2)
+*does not* properly match:1.0.3
+FORCING MATCHING UPDATE!
+2025-10-21 17:38:09 INFO:  : $objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Version                        1.0.3                                                                                                                                                                                                                                          
+Valid                          False
+2025-10-21 17:38:10 INFO:  : (SET:$objReport.Valid = $true ;)
+2025-10-21 17:38:10 INFO:  : (PIPELINE:New-Object PSObject -Property $objReport | write-output)
+$objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Version                        1.0.3                                                                                                                                                                                                                                          
+Valid                          True
+2025-10-21 17:38:11 INFO:  : #*======^ confirm-ModulePsm1Version: c:\sc\verb-MG\verb-MG\verb-MG.psm1_TMP ^======
+2025-10-21 17:38:12 INFO:  : (confirm-ModulePsm1Version:Success)
+2025-10-21 17:38:12 INFO:  : (-NoTest: skipping confirm-ModuleTestPs1Guid)
+2025-10-21 17:38:13 INFO:  : $objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Manifest                       c:\sc\verb-MG\verb-MG\verb-MG.psd1_TMP                                                                                                                                                                                                         
+Module                         c:\sc\verb-MG\verb-MG\verb-MG.psm1_TMP                                                                                                                                                                                                         
+Pester                         (SKIPPED)                                                                                                                                                                                                                                      
+Guid                           (SKIPPED)                                                                                                                                                                                                                                      
+Version                        1.0.3                                                                                                                                                                                                                                          
+Valid                          False
+2025-10-21 17:38:13 INFO:  : (SET:$objReport.Valid = $true ;)
+2025-10-21 17:38:14 INFO:  : (PIPELINE:New-Object PSObject -Property $objReport | write-output)
+$objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Manifest                       c:\sc\verb-MG\verb-MG\verb-MG.psd1_TMP                                                                                                                                                                                                         
+Module                         c:\sc\verb-MG\verb-MG\verb-MG.psm1_TMP                                                                                                                                                                                                         
+Pester                         (SKIPPED)                                                                                                                                                                                                                                      
+Guid                           (SKIPPED)                                                                                                                                                                                                                                      
+Version                        1.0.3                                                                                                                                                                                                                                          
+Valid                          True
+2025-10-21 17:38:14 INFO:  : #*======^ confirm-ModuleBuildSync:  ^======
+2025-10-21 17:38:15 INFO:  : (confirm-ModuleBuildSync:Success)
+2025-10-21 17:38:15 INFO:  : Test-ModuleTMPFiles w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+ModuleNamePSM1Path             c:\sc\verb-MG\verb-MG\verb-MG.psm1_TMP                                                                                                                                                                                                         
+verbose                        True
+2025-10-21 17:38:16 INFO:  : #*======v Test-ModuleTMPFiles: c:\sc\verb-MG\verb-MG\verb-MG.psm1_TMP v======
+2025-10-21 17:38:16 INFO:  : 
+Psm1:c:\sc\verb-MG\verb-MG\verb-MG.psm1_TMP
+Psd1:c:\sc\verb-MG\verb-MG\verb-MG.psd1_TMP
+2025-10-21 17:38:17 INFO:  : Creating Testable c:\sc\verb-MG\verb-MG\bbb60921-6c5e-4d95-8b2f-b16f13b47982.psd1
+ to validate c:\sc\verb-MG\verb-MG\verb-MG.psd1_TMP will Test-ModuleManifest
+2025-10-21 17:38:18 INFO:  : Test-ModuleManifest w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+verbose                        True                                                                                                                                                                                                                                           
+Path                           c:\sc\verb-MG\verb-MG\bbb60921-6c5e-4d95-8b2f-b16f13b47982.psd1                                                                                                                                                                                
+ErrorVariable                  vManiErr                                                                                                                                                                                                                                       
+ErrorAction                    STOP
+2025-10-21 17:38:19 INFO:  : Test-ModuleManifest:PASSED
+2025-10-21 17:38:20 INFO:  : Creating Testable c:\sc\verb-MG\verb-MG\bbb60921-6c5e-4d95-8b2f-b16f13b47982.psm1
+ to validate c:\sc\verb-MG\verb-MG\verb-MG.psm1_TMP will Import-Module
+2025-10-21 17:38:21 INFO:  : n import-module w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Name                           c:\sc\verb-MG\verb-MG\bbb60921-6c5e-4d95-8b2f-b16f13b47982.psm1                                                                                                                                                                                
+Force                          True                                                                                                                                                                                                                                           
+verbose                        True                                                                                                                                                                                                                                           
+ErrorAction                    STOP                                                                                                                                                                                                                                           
+ErrorVariable                  vIpMoErr                                                                                                                                                                                                                                       
+PassThru                       True
+2025-10-21 17:38:22 INFO:  : Ipmo: PASSED
+2025-10-21 17:38:23 INFO:  : (remove-module -name c:\sc\verb-MG\verb-MG\bbb60921-6c5e-4d95-8b2f-b16f13b47982.psm1 -force)
+2025-10-21 17:38:24 INFO:  : (remove-item -path c:\sc\verb-MG\verb-MG\bbb60921-6c5e-4d95-8b2f-b16f13b47982.psm1 -ErrorAction SilentlyContinue ; 
+2025-10-21 17:38:24 INFO:  : (remove-item -path c:\sc\verb-MG\verb-MG\bbb60921-6c5e-4d95-8b2f-b16f13b47982.psd1 -ErrorAction SilentlyContinue ; 
+2025-10-21 17:38:25 INFO:  : $objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Manifest                       bbb60921-6c5e-4d95-8b2f-b16f13b47982                                                                                                                                                                                                           
+Module                         bbb60921-6c5e-4d95-8b2f-b16f13b47982                                                                                                                                                                                                           
+Valid                          False
+2025-10-21 17:38:26 INFO:  : (SET:$objReport.Valid = $true ;)
+2025-10-21 17:38:26 INFO:  : (PIPELINE:New-Object PSObject -Property $objReport | write-output)
+$objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Manifest                       bbb60921-6c5e-4d95-8b2f-b16f13b47982                                                                                                                                                                                                           
+Module                         bbb60921-6c5e-4d95-8b2f-b16f13b47982                                                                                                                                                                                                           
+Valid                          True
+2025-10-21 17:38:27 INFO:  : #*======^ Test-ModuleTMPFiles: c:\sc\verb-MG\verb-MG\verb-MG.psm1_TMP ^======
+2025-10-21 17:38:28 INFO:  : Processing error free: Overwriting temp .psm1 with temp copy
+copy-item w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Destination                    c:\sc\verb-MG\verb-MG\verb-MG.psm1                                                                                                                                                                                                             
+Path                           c:\sc\verb-MG\verb-MG\verb-MG.psm1_TMP                                                                                                                                                                                                         
+whatif                         False                                                                                                                                                                                                                                          
+ErrorAction                    STOP
+2025-10-21 17:38:28 INFO:  : Processing error free: Overwriting temp .psd1 with temp copy
+copy-item w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Destination                    c:\sc\verb-MG\verb-MG\verb-MG.psd1                                                                                                                                                                                                             
+Path                           c:\sc\verb-MG\verb-MG\verb-MG.psd1_TMP                                                                                                                                                                                                         
+whatif                         False                                                                                                                                                                                                                                          
+ErrorAction                    STOP
+2025-10-21 17:38:29 INFO:  : #*======^ ConvertTo-ModuleMergedTDO: ^======
+2025-10-21 17:38:29 VERBOSE:  : (no $ttmm_Err: test-ModuleManifest had no errors)
+2025-10-21 17:38:30 INFO:  : (Test-ModuleManifest:PASSED)
+2025-10-21 17:38:31 INFO:  : Checking sync of Psd1 module guid to the Pester Test Script: c:\sc\verb-MG\Tests\verb-MG.tests.ps1
+2025-10-21 17:38:31 INFO:  : confirm-ModuleBuildSync w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+ModPsdPath                     C:\sc\verb-MG\verb-MG\verb-MG.psd1                                                                                                                                                                                                             
+RequiredVersion                1.0.3                                                                                                                                                                                                                                          
+whatif                         False                                                                                                                                                                                                                                          
+verbose                        True
+2025-10-21 17:38:32 INFO:  : #*======v confirm-ModuleBuildSync:  v======
+2025-10-21 17:38:33 INFO:  : (test-path confirms $ModPsm1 & $ModTestPs1)
+2025-10-21 17:38:33 INFO:  : Import-PowerShellDataFile w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Path                           C:\sc\verb-MG\verb-MG\verb-MG.psd1                                                                                                                                                                                                             
+ErrorAction                    Stop                                                                                                                                                                                                                                           
+verbose                        True
+2025-10-21 17:38:34 INFO:  : (resolved Module attributes:
+$ModuleName:	verb-MG
+$ModRoot:	c:\sc\verb-MG
+$ModPsd1:	C:\sc\verb-MG\verb-MG\verb-MG.psd1
+$ModPsm1:	C:\sc\verb-MG\verb-MG\verb-MG.psm1
+$ModTestPs1:	c:\sc\verb-MG\Tests\verb-MG.tests.ps1
+$psd1Vers:	1.0.3
+$psd1guid:	ac3050f2-8b1c-4dca-b2e1-3cd3efeb607b)
+2025-10-21 17:38:34 INFO:  : confirm-ModulePsd1Version w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Path                           C:\sc\verb-MG\verb-MG\verb-MG.psd1                                                                                                                                                                                                             
+RequiredVersion                1.0.3                                                                                                                                                                                                                                          
+whatif                         False                                                                                                                                                                                                                                          
+verbose                        True
+2025-10-21 17:38:35 INFO:  : #*======v confirm-ModulePsd1Version: C:\sc\verb-MG\verb-MG\verb-MG.psd1 v======
+2025-10-21 17:38:36 INFO:  : (Version already updated to match)
+2025-10-21 17:38:37 INFO:  : $objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Version                        1.0.3                                                                                                                                                                                                                                          
+Valid                          False
+2025-10-21 17:38:38 INFO:  : (SET:$objReport.Valid = $true ;)
+2025-10-21 17:38:39 INFO:  : (PIPELINE:New-Object PSObject -Property $objReport | write-output)
+$objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Version                        1.0.3                                                                                                                                                                                                                                          
+Valid                          True
+2025-10-21 17:38:39 INFO:  : #*======^ confirm-ModulePsd1Version: C:\sc\verb-MG\verb-MG\verb-MG.psd1 ^======
+2025-10-21 17:38:40 INFO:  : (confirm-ModulePsd1Version:Success)
+2025-10-21 17:38:40 INFO:  : confirm-ModulePsm1Version w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Path                           C:\sc\verb-MG\verb-MG\verb-MG.psm1                                                                                                                                                                                                             
+RequiredVersion                1.0.3                                                                                                                                                                                                                                          
+whatif                         False                                                                                                                                                                                                                                          
+verbose                        True
+2025-10-21 17:38:41 INFO:  : #*======v confirm-ModulePsm1Version: C:\sc\verb-MG\verb-MG\verb-MG.psm1 v======
+2025-10-21 17:38:42 INFO:  : (Version already updated to match)
+2025-10-21 17:38:42 INFO:  : $objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Version                        1.0.3                                                                                                                                                                                                                                          
+Valid                          False
+2025-10-21 17:38:43 INFO:  : (SET:$objReport.Valid = $true ;)
+2025-10-21 17:38:43 INFO:  : (PIPELINE:New-Object PSObject -Property $objReport | write-output)
+$objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Version                        1.0.3                                                                                                                                                                                                                                          
+Valid                          True
+2025-10-21 17:38:44 INFO:  : #*======^ confirm-ModulePsm1Version: C:\sc\verb-MG\verb-MG\verb-MG.psm1 ^======
+2025-10-21 17:38:44 INFO:  : (confirm-ModulePsm1Version:Success)
+2025-10-21 17:38:45 INFO:  : Checking sync of Psd1 module guid to the Pester Test Script: c:\sc\verb-MG\Tests\verb-MG.tests.ps1
+2025-10-21 17:38:45 INFO:  : confirm-ModuleTestPs1Guid w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Path                           c:\sc\verb-MG\Tests\verb-MG.tests.ps1                                                                                                                                                                                                          
+RequiredGuid                   ac3050f2-8b1c-4dca-b2e1-3cd3efeb607b                                                                                                                                                                                                           
+whatif                         False                                                                                                                                                                                                                                          
+verbose                        True
+2025-10-21 17:38:46 INFO:  : #*======v confirm-ModuleTestPs1Guid: c:\sc\verb-MG\Tests\verb-MG.tests.ps1 v======
+2025-10-21 17:38:47 INFO:  : (Guid  already updated to match)
+2025-10-21 17:38:47 INFO:  : $objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Guid                           ac3050f2-8b1c-4dca-b2e1-3cd3efeb607b                                                                                                                                                                                                           
+Valid                          False
+2025-10-21 17:38:48 INFO:  : (SET:$objReport.Valid = $true ;)
+2025-10-21 17:38:48 INFO:  : (PIPELINE:New-Object PSObject -Property $objReport | write-output)
+$objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Guid                           ac3050f2-8b1c-4dca-b2e1-3cd3efeb607b                                                                                                                                                                                                           
+Valid                          True
+2025-10-21 17:38:49 INFO:  : #*======^ confirm-ModuleTestPs1Guid: c:\sc\verb-MG\Tests\verb-MG.tests.ps1 ^======
+2025-10-21 17:38:49 INFO:  : (confirm-ModuleTestPs1Guid:Success)
+2025-10-21 17:38:50 INFO:  : $objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Manifest                       C:\sc\verb-MG\verb-MG\verb-MG.psd1                                                                                                                                                                                                             
+Module                         C:\sc\verb-MG\verb-MG\verb-MG.psm1                                                                                                                                                                                                             
+Pester                         c:\sc\verb-MG\Tests\verb-MG.tests.ps1                                                                                                                                                                                                          
+Guid                           ac3050f2-8b1c-4dca-b2e1-3cd3efeb607b                                                                                                                                                                                                           
+Version                        1.0.3                                                                                                                                                                                                                                          
+Valid                          False
+2025-10-21 17:38:50 INFO:  : (SET:$objReport.Valid = $true ;)
+2025-10-21 17:38:51 INFO:  : (PIPELINE:New-Object PSObject -Property $objReport | write-output)
+$objReport
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Manifest                       C:\sc\verb-MG\verb-MG\verb-MG.psd1                                                                                                                                                                                                             
+Module                         C:\sc\verb-MG\verb-MG\verb-MG.psm1                                                                                                                                                                                                             
+Pester                         c:\sc\verb-MG\Tests\verb-MG.tests.ps1                                                                                                                                                                                                          
+Guid                           ac3050f2-8b1c-4dca-b2e1-3cd3efeb607b                                                                                                                                                                                                           
+Version                        1.0.3                                                                                                                                                                                                                                          
+Valid                          True
+2025-10-21 17:38:52 INFO:  : #*======^ confirm-ModuleBuildSync:  ^======
+2025-10-21 17:38:52 INFO:  : (confirm-ModuleBuildSync:Success)
+2025-10-21 17:38:53 VERBOSE:  : $Psd1filelist populated: export-cliXML:c:\sc\verb-MG\Psd1filelist
+2025-10-21 17:38:53 INFO:  : Updating the Psd1 FileList to with populated $Psd1filelist...
+2025-10-21 17:38:54 INFO:  : Signing appropriate files...
+2025-10-21 17:38:55 INFO:  : set-AuthenticodeSignatureTDO w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+file                           {C:\sc\verb-MG\rebuild-module.ps1, C:\sc\verb-MG\requirements.psd1, C:\sc\verb-MG\Tests\PPoShScriptingStyle.psd1, C:\sc\verb-MG\Tests\ToddomationScriptingStyle-medium.psd1...}                                                                
+ErrorAction                    Stop                                                                                                                                                                                                                                           
+whatif                         False
+2025-10-21 17:38:55 INFO:  : Removing existing profile verb-MG content...
+2025-10-21 17:38:56 INFO:  : Uninstall-ModuleForce w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+ModuleName                     verb-MG                                                                                                                                                                                                                                        
+Verbose                        True                                                                                                                                                                                                                                           
+whatif                         False
+2025-10-21 17:39:00 INFO:  : 
+#*------v Uninstall PSGet Mod:verb-MG:v1.0.2 v------
+2025-10-21 17:39:01 INFO:  : Uninstall-Script w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Force                          True                                                                                                                                                                                                                                           
+Whatif                         False                                                                                                                                                                                                                                          
+Verbose                        True
+2025-10-21 17:39:25 INFO:  : 
+#*------^ Uninstall PSGet Mod:verb-MG:v1.0.2 ^------
+2025-10-21 17:39:25 INFO:  : (Processing $env:PSModulePath paths, for surviving locked copies of verb-MG to *manually* purge...)
+2025-10-21 17:39:26 INFO:  : Checking: verb-MG below: C:\Users\kadritss\Documents\WindowsPowerShell\Modules...
+2025-10-21 17:39:26 INFO:  : Checking: verb-MG below: C:\ProgramData\Boxstarter...
+2025-10-21 17:39:27 INFO:  : Checking: verb-MG below: C:\Program Files\WindowsPowerShell\Modules...
+2025-10-21 17:39:27 INFO:  : Checking: verb-MG below: C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules...
+2025-10-21 17:39:28 INFO:  : Checking: verb-MG below: C:\Program Files (x86)\AutoIt3\AutoItX...
+2025-10-21 17:39:29 INFO:  : (no $sRet returned on call)
+2025-10-21 17:39:29 INFO:  : Copying module to profile (net of .git & .vscode dirs, and backed up content)...
+2025-10-21 17:39:30 INFO:  : $srcFiles:post-filter out:
+\\(Package|Tests|logs)\\|(\.ps[dm]1_(\d+-\d+[AP]M|TMP)|-LOG-BATCH-EXEC-\d+-\d+[AP]M-log\.txt|\\(fingerprint|Psd1filelist))$
+2025-10-21 17:39:30 INFO:  : Discovered mod-copy files ($srcFiles.fullname):w
+C:\sc\verb-MG\verb-MG\CHANGELOG.md
+C:\sc\verb-MG\verb-MG\LICENSE.txt
+C:\sc\verb-MG\verb-MG\Quick-Start-Installation-and-Example.md
+C:\sc\verb-MG\verb-MG\README.md
+C:\sc\verb-MG\verb-MG\verb-MG.psd1
+C:\sc\verb-MG\verb-MG\verb-MG.psm1
+C:\sc\verb-MG\verb-MG\verb-MG.psm1_OBSO
+2025-10-21 17:39:31 INFO:  : Non-Pre-existing:$to:C:\Users\kadritss\Documents\WindowsPowerShell\Modules\verb-MG\verb-MG
+Pre-creating before copy...
+2025-10-21 17:39:31 INFO:  : Mode   LastWriteTime         Length Name   
+----   -------------         ------ ----   
+d----- 10/21/2025 5:39:31 PM        verb-MG
+2025-10-21 17:39:32 INFO:  : -Merge:exclude $MergeBuildExcl \\(Public|Internal|External|Private)\\.*.ps1$ files from temp build copy
+2025-10-21 17:39:32 INFO:  : Recursively remove empty subdirs below C:\Users\kadritss\Documents\WindowsPowerShell\Modules\verb-MG\verb-MG...
+2025-10-21 17:39:33 INFO:  : Move/Flatten Resource etc files into root of temp Build dir...
+2025-10-21 17:39:33 INFO:  : Unable to locate a problematic temp mod dir C:\Users\kadritss\Documents\WindowsPowerShell\Modules\verb-MG\verb-MG COPY of Quick-Start-Installation-and-Example.md
+2025-10-21 17:39:34 INFO:  : Unable to locate a problematic temp mod dir C:\Users\kadritss\Documents\WindowsPowerShell\Modules\verb-MG\verb-MG COPY of CHANGELOG.md
+2025-10-21 17:39:35 INFO:  : Unable to locate a problematic temp mod dir C:\Users\kadritss\Documents\WindowsPowerShell\Modules\verb-MG\verb-MG COPY of LICENSE.txt
+2025-10-21 17:39:35 INFO:  : Unable to locate a problematic temp mod dir C:\Users\kadritss\Documents\WindowsPowerShell\Modules\verb-MG\verb-MG COPY of README.md
+2025-10-21 17:39:36 INFO:  : copy/Flatten Resource etc files into source root c:\sc\verb-MG\verb-MG dir...
+2025-10-21 17:39:36 INFO:  : Resolved $ModPsdPath:
+C:\sc\verb-MG\verb-MG\verb-MG.psd1
+2025-10-21 17:39:37 VERBOSE:  : resolve-path the CUMods verb-MG.psd1 location
+2025-10-21 17:39:37 INFO:  : 
+==Verifying CU:Mods\verb-MG\verb-MG\Quick-Start-Installation-and-Example.md:
+2025-10-21 17:39:38 INFO:  : 
+==Verifying CU:Mods\verb-MG\verb-MG\CHANGELOG.md:
+2025-10-21 17:39:38 INFO:  : 
+==Verifying CU:Mods\verb-MG\verb-MG\LICENSE.txt:
+2025-10-21 17:39:39 INFO:  : 
+==Verifying CU:Mods\verb-MG\verb-MG\README.md:
+2025-10-21 17:39:40 INFO:  : Running pre-Publish-Module .psd1 test:
+Test-ModuleManifest -path C:\sc\verb-MG\verb-MG\verb-MG.psd1
+2025-10-21 17:39:40 VERBOSE:  : (no $ttmm_Err: test-ModuleManifest had no errors)
+2025-10-21 17:39:41 INFO:  : (Test-ModuleManifest:PASSED)
+2025-10-21 17:39:42 INFO:  : (Profiling Repo: get-PSRepository -name lyncRepo...)
+2025-10-21 17:39:42 VERBOSE:  : (confirmed:$tRepo.PublishLocation accessible)
+2025-10-21 17:39:43 INFO:  : 
+Publish-Module w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Name                           verb-MG                                                                                                                                                                                                                                        
+Repository                     lyncRepo                                                                                                                                                                                                                                       
+RequiredVersion                1.0.3                                                                                                                                                                                                                                          
+Verbose                        True                                                                                                                                                                                                                                           
+ErrorAction                    Stop                                                                                                                                                                                                                                           
+errorVariable                  pbmo_Err                                                                                                                                                                                                                                       
+whatif                         False
+2025-10-21 17:39:48 WARNING:  :  FOUND $pbmo_Err: import-module HAD ERRORS! (no action, could be non-impacting)
+2025-10-21 17:39:49 WARNING:  :  Publish-Module PBMO UNDEFINED ERROR! System.Management.Automation.StopUpstreamCommandsException: System error.     at Microsoft.PowerShell.Commands.SelectObjectCommand.ProcessRecord()     at System.Management.Automation.CommandProcessor.ProcessRecord() (But PublishModule doesn't bother to return a functional Error object with an Exception, so we can't trust/parse or act on it. Just echo)
+2025-10-21 17:39:51 INFO:  : Waiting for:find-module -name verb-MG -Repository lyncRepo ...
+2025-10-21 17:39:52 INFO:  : Install-Module w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Name                           verb-MG                                                                                                                                                                                                                                        
+Repository                     lyncRepo                                                                                                                                                                                                                                       
+RequiredVersion                1.0.3                                                                                                                                                                                                                                          
+scope                          CurrentUser                                                                                                                                                                                                                                    
+force                          True                                                                                                                                                                                                                                           
+AllowClobber                   True                                                                                                                                                                                                                                           
+errorVariable                  ismo_Err                                                                                                                                                                                                                                       
+ErrorAction                    Stop                                                                                                                                                                                                                                           
+whatif                         False
+2025-10-21 17:39:57 VERBOSE:  : (no $ismo_Err: Install-Module had no errors)
+2025-10-21 17:39:58 INFO:  : Testing Module:Import-Module w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Name                           verb-MG                                                                                                                                                                                                                                        
+ErrorAction                    Stop                                                                                                                                                                                                                                           
+errorVariable                  ipmo_Err                                                                                                                                                                                                                                       
+force                          True                                                                                                                                                                                                                                           
+verbose                        True
+2025-10-21 17:39:59 VERBOSE:  : (no $ipmo_Err: test-ModuleManifest had no errors)
+2025-10-21 17:39:59 INFO:  : Retrieving matching Repo .nupkg file:
+gci \\lynmsv10\lync_fs\scripts\sc\verb-MG.1.0.3.nupkgl..
+2025-10-21 17:40:00 INFO:  : Proper updated .nupkg file found:verb-MG.1.0.3.nupkg, copying to local Pkg directory.
+2025-10-21 17:40:01 INFO:  : remove-UnneededFileVariants w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Path                           c:\sc\verb-MG\Package                                                                                                                                                                                                                          
+Include                        verb-MG*.nupkg                                                                                                                                                                                                                                 
+Pattern                                                                                                                                                                                                                                                                       
+FilterOn                       CreationTime                                                                                                                                                                                                                                   
+Keep                           2                                                                                                                                                                                                                                              
+KeepToday                      True                                                                                                                                                                                                                                           
+verbose                        True                                                                                                                                                                                                                                           
+whatif                         False
+2025-10-21 17:40:01 INFO:  : remove-UnneededFileVariants w
+Name                           Value                                                                                                                                                                                                                                          
+----                           -----                                                                                                                                                                                                                                          
+Path                           c:\sc\verb-MG\Tests                                                                                                                                                                                                                            
+Include                        ScriptAnalyzer-Results-*.xml                                                                                                                                                                                                                   
+Pattern                                                                                                                                                                                                                                                                       
+FilterOn                       CreationTime                                                                                                                                                                                                                                   
+Keep                           4                                                                                                                                                                                                                                              
+KeepToday                      True                                                                                                                                                                                                                                           
+verbose                        True                                                                                                                                                                                                                                           
+whatif                         False
+2025-10-21 17:40:02 INFO:  : 
+---------------------------------------------------------------------------------
+Processing completed: verb-MG :: c:\sc\verb-MG
+- Script is currently installed (from PsRep: with scope:CurrentUser, under TORO\kadritss profile
+
+- To update other scopes/accounts on same machine, or install on other machines:
+    1. Uninstall current module copies:
+
+        Uninstall-Module -Name verb-MG) -AllVersion -whatif ;
+
+    2. Install the current version (or higher) from the Repo:lyncRepo:
+
+        install-Module -name verb-MG -Repository lyncRepo -RequiredVersion 1.0.3 -scope currentuser -whatif ;
+
+    3. Reimport the module with -force, to ensure the current installed verison is loaded:
+
+        import-Module -name verb-MG -force -verbose ;
+
+#-=-=-Stacked list for the above: CURRENTUSER=-=-=-=-=-=
+$whatif=$false ;  $tScop = 'CurrentUser' ; $tMod = 'verb-MG' ; $tVer = '1.0.3' ;
+if($IsCoreCLR){
+    write-warning "WARNING YOU'RE INSTALLING INTO POWERSHELLCORE (7+)!
+THE MODULE WILL GO INTO \DOCS\POWERSHELL\MODULES
+(vs \DOCS\WINDOWSPOWERSHELL\MODULES)!" ; 
+    $bRet=Read-Host "Enter YYY to continue. Anything else will exit"  ; 
+    if ($bRet.ToUpper() -eq "YYY") {} else {WRITE-WARNING "HALTING!" ; BREAK} ; 
+} ; 
+TRY {
+    switch($tScop){
+        'CurrentUser'{$ModPath = "$(split-path $profile)\Modules\$($tmod)" }
+        'AllUsers' {$ModPath = "$($env:ProgramFiles)\WindowsPowerShell\Modules)\$($tmod)"} 
+    } ;
+    if($Repository = (Get-PSRepository -Name $localPSRepo -ea 'STOP').name){
+        rmo -Name $tmod -ea 0 ;
+        Uninstall-Module -Name $tmod -AllVersion -force -ea 0 -whatif:$($whatif);
+        gi -path $ModPath -ea 0 |ri -Recurse -force -verbose  -whatif:$($whatif) ;
+        if($thisVers = find-module -name $tmod -Repository $Repository -RequiredVersion $tVer){
+            $thisvers  | ft -a Name,Version,Repository ; 
+            $thisVers | install-Module -scope $tScop -Force -AllowClobber -ea 'STOP' -whatif:$($whatif) ;
+        }else {
+            throw "Unable to:find-module -name $($tmod) -Repository $($Repository) -RequiredVersion $($tVer)" ; 
+            break ; 
+        } ; 
+        rmo -Name $tmod -force -ea 0 ;
+        ipmo -name $tmod -force -verbose -ea 'STOP'  ;
+        gmo -name $tmod | ? version -ne $tVer | rmo -Force -Verbose ; 
+        gmo -name $tmod -list ;
+    } else {
+        throw "Unable to resolve `lyncRepo to a configured local PSRepository" ;
+    } ;
+} CATCH {
+    $ErrTrapd=$Error[0] ;
+    $smsg = "
+$(($ErrTrapd | fl * -Force|out-string).trim())" ;
+    write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" ;
+} ;
+#-=-=-=-=-=-=-=-=
+#-=-=-Stacked list for the above: ALLUSERS=-=-=-=-=-=
+$whatif=$false ; $tScop = 'AllUsers' ; $tMod = 'verb-MG' ; $tVer = '1.0.3' ;  
+if($IsCoreCLR){
+    write-warning "WARNING YOU'RE INSTALLING INTO POWERSHELLCORE (7+)!
+THE MODULE WILL GO INTO \DOCS\POWERSHELL\MODULES
+(vs \DOCS\WINDOWSPOWERSHELL\MODULES)!" ; 
+    $bRet=Read-Host "Enter YYY to continue. Anything else will exit"  ; 
+    if ($bRet.ToUpper() -eq "YYY") {} else {WRITE-WARNING "HALTING!" ; BREAK} ; 
+} ; 
+TRY {
+    switch($tScop){
+        'CurrentUser'{$ModPath = "$(split-path $profile)\Modules\$($tmod)" }
+        'AllUsers' {$ModPath = "$($env:ProgramFiles)\WindowsPowerShell\Modules)\$($tmod)"} 
+    } ;
+    if($Repository = (Get-PSRepository -Name $localPSRepo -ea 'STOP').name){
+        rmo -Name $tmod -ea 0 ;
+        Uninstall-Module -Name $tmod -AllVersion -force -ea 0 -whatif:$($whatif);
+        gi -path $ModPath -ea 0 |ri -Recurse -force -verbose  -whatif:$($whatif) ;
+        if($thisVers = find-module -name $tmod -Repository $Repository -RequiredVersion $tVer){
+            $thisvers  | ft -a Name,Version,Repository ; 
+            $thisVers | install-Module -scope $tScop -Force -AllowClobber -ea 'STOP' -whatif:$($whatif) ;
+        }else {
+            throw "Unable to:find-module -name $($tmod) -Repository $($Repository) -RequiredVersion $($tVer)" ; 
+            break ; 
+        } ; 
+        rmo -Name $tmod -force -ea 0 ;
+        ipmo -name $tmod -force -verbose -ea 'STOP'  ;
+        gmo -name $tmod | ? version -ne $tVer | rmo -Force -Verbose ; 
+        gmo -name $tmod -list ;
+    } else {
+        throw "Unable to resolve `lyncRepo to a configured local PSRepository" ;
+    } ;
+} CATCH {
+    $ErrTrapd=$Error[0] ;
+    $smsg = "
+$(($ErrTrapd | fl * -Force|out-string).trim())" ;
+    write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" ;
+} ;
+#-=-=-=-=-=-=-=-=
+
+- You may also want to run the configured Pester Tests of the new script:
+
+        . c:\sc\verb-MG\Tests\verb-MG.tests.ps1
+
+Full Processing Details can be found in:
+
+c:\scripts\logs\update-NewModule-verb-MG-LOG-BATCH-EXEC-20251021-1737PM-log.txt
+
+---------------------------------------------------------------------------------
+
+2025-10-21 17:40:03 INFO:  : 
+(Most recent processing log can be found at:c:\sc\verb-MG\update-NewModule-verb-MG-LOG-BATCH-EXEC-20251021-1737PM-log.txt)
+(perm copy stored at:c:\scripts\logs\update-NewModule-verb-MG-LOG-BATCH-EXEC-20251021-1737PM-log.txt
