@@ -116,7 +116,7 @@ Function test-MGConnectionTDOTDO {
         #[Parameter(Position=0,Mandatory=$True,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true,HelpMessage="HELPMSG[-PARAM SAMPLEINPUT]")]
         [Parameter(Position=0,Mandatory=$false,HelpMessage="Target TenantID (used for confirmation matching)[-TenantID '999999aa-a99a-99a9-9aaa-99a9a99aa99a']")]
             $TenantID = $tormeta.o365_TenantID,
-        [Parameter(Mandatory=$True,HelpMessage="Scopes required for planned cmdlets to be executed[-RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]")]
+        [Parameter(Mandatory=$false,HelpMessage="Scopes required for planned cmdlets to be executed[-RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]")]
             [array]$RequiredScopes
     ) ;
     BEGIN{
@@ -153,10 +153,7 @@ Function test-MGConnectionTDOTDO {
         } ; 
     } ;
     PROCESS{
-        #Connect-MgGraph -Scopes "Organization.Read.All" -NoWelcome # suppress the banner, or it dumps it into the pipeline!
-        #$LastDirSyncTime = (Get-MsolCompanyInformation).LastDirSyncTime ;
-        #$LastDirSyncTime = (Get-AzureADTenantDetail).CompanyLastDirSyncTime ;
-        #$LastDirSyncTime = Get-MgOrganization | select -expand OnPremisesLastSyncDateTime=
+        #Connect-MgGraph -Scopes "Organization.Read.All" -NoWelcome # suppress the banner, or it dumps it into the pipeline!        
         $mgCS = Get-MgContext -ErrorAction SilentlyContinue ;         
         if( $mgCS){
             #New-Object PSObject -Property @{

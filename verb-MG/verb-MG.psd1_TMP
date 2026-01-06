@@ -12,7 +12,7 @@
 RootModule = 'verb-MG.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.3'
+ModuleVersion = '1.0.4'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -69,7 +69,7 @@ Description = 'MS Graph module-related functions'
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = @('get-MGCodeCmdletPermissionsTDO')
+FunctionsToExport = @('connect-MG','push-TLSLatest','get-MGCodeCmdletPermissionsTDO','get-MGLicenseFullName','get-MGLicensePlanlist','get-MGOPLastSync','get-MgUserFull','get-MgUserLicenseDetailTDO','test-MGConnectionTDOTDO','Wait-MGOPSync')
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = '*'
@@ -129,8 +129,8 @@ PrivateData = @{
 # SIG # Begin signature block
 # MIIELgYJKoZIhvcNAQcCoIIEHzCCBBsCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUx+ll1/rw5SKFZe5Pl/Nba3Kd
-# zsygggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUZeSxr81yJeNU0cxXblMH2YZQ
+# Ls2gggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
 # MCwxKjAoBgNVBAMTIVBvd2VyU2hlbGwgTG9jYWwgQ2VydGlmaWNhdGUgUm9vdDAe
 # Fw0xNDEyMjkxNzA3MzNaFw0zOTEyMzEyMzU5NTlaMBUxEzARBgNVBAMTClRvZGRT
 # ZWxmSUkwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBALqRVt7uNweTkZZ+16QG
@@ -145,10 +145,10 @@ PrivateData = @{
 # AWAwggFcAgEBMEAwLDEqMCgGA1UEAxMhUG93ZXJTaGVsbCBMb2NhbCBDZXJ0aWZp
 # Y2F0ZSBSb290AhBaydK0VS5IhU1Hy6E1KUTpMAkGBSsOAwIaBQCgeDAYBgorBgEE
 # AYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwG
-# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBT4UN8y
-# /FRwmGdb1P9QO+w/HcDjBDANBgkqhkiG9w0BAQEFAASBgIjxhdP6Aumjso1ftAsY
-# HeoBbWtCyHJAUZgpjQtCnm8ob3Q/9PYL0ZxxVfrVi8z4ezUliQdxPAYnAid+GvDH
-# Tgsk5jx0bp05xGUOT57KfJo7v366XkkjwQL6kZuInCgdbhrw0zZEF7UDqGIfB6n/
-# mbzZHi0E8aahqmbIoL1NEAjR
+# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR6t/ik
+# 7QEguxaOah8M3siOyDEOjzANBgkqhkiG9w0BAQEFAASBgFJ6uSXyq+oJvABEC2JI
+# DjVKAwsJxmsQv2NP4bzFD5YBprOghuOXvOhYjx5Y1LoY8Hon/Ulx808cAIyWsurn
+# 6fArcwDjsftM+RKsCNjVPL8aTiopvcES01Leffu+fofFrVsKDTZBjgMWNYI/SeMW
+# 8fW1MfL8Vq8TW7p+b7b1QOS/
 # SIG # End signature block
 
