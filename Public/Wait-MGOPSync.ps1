@@ -142,6 +142,8 @@ Function Wait-MGOPSync {
         #endregion cMG_SCAFFOLD ; #*------^ END cMG_SCAFFOLD ^------
         #Connect-MgGraph -Scopes "Organization.Read.All" -NoWelcome # suppress the banner, or it dumps it into the pipeline!
         $pltCMG.add('Scopes', "Organization.Read.All" ) ;
+        #9:42 AM 1/12/2026 cmggraph has -scopes param, but connect-mg uses RequiredScopes - should Alias it
+
         #$LastDirSyncTime = (Get-MsolCompanyInformation).LastDirSyncTime ;
         #$LastDirSyncTime = (Get-AzureADTenantDetail).CompanyLastDirSyncTime ;
         connect-MG @pltCMG ; 
