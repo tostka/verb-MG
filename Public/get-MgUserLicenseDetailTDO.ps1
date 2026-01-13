@@ -4,7 +4,7 @@
 Function get-MgUserLicenseDetailTDO {
     <#
     .SYNOPSIS
-    get-MgUserLicenseDetailTDO - Summarize an MgUser's assigned o365 license (Microsoft.Graph), returns LicAccountSkuID,DisplayName,UserPrincipalName,LicenseFriendlyName
+    get-MgUserLicenseDetailTDO - Summarize an MgUser's assigned o365 license (Microsoft.Graph), returns LicAccountSkuID,DisplayName,UserPrincipalName,LicenseFriendlyName (as differntiated from Microsoft.Graph\get-MgUserLicenseDetail which returns 'A collection of this user's license details'.
     .NOTES
     Version     : 1.0.0
     Author      : Todd Kadrie
@@ -20,6 +20,7 @@ Function get-MgUserLicenseDetailTDO {
     AddedWebsite:	https://thelazyadministrator.com/2018/03/19/get-friendly-license-name-for-all-users-in-office-365-using-powershell/
     AddedTwitter:	URL
     REVISIONS   :
+    * 1:14 PM 1/13/2026 CBH updated to diff vmg\Get-MgUserLicenseDetailTDO from mggraph\Get-MgUserLicenseDetail
     * 3:26 PM 1/6/2026 removed mg ipmo ; spliced over latest Connect-mgGraph -scope scaff; functional, updated cmg scaffold, needs to be replic to all other calling scripts
     * * 12:13 PM 12/31/2025 inevitble WOT port to M$'s latest garbage module mandate with incompatible cmdlet names, parameters, etc: Microsoft.Graph,from verb-AAD -> verb-MG
     * 10:44 AM 9/19/2024 added: Microsoft_Teams_Audio_Conferencing_select_dial_out = Microsoft Teams Audio Conferencing with dial-out to USA/CAN 
@@ -32,16 +33,23 @@ Function get-MgUserLicenseDetailTDO {
     * 8:15 AM 12/21/2022 updated CBH; sub'd out showdebug for w-v
     * 2:02 PM 3/23/2022 convert verb-aad:get-MsolUserLicensedetails -> get-MgUserLicenseDetailTDO (Msonline -> AzureAD module rewrite)
     .DESCRIPTION
-    get-MgUserLicenseDetailTDO - Summarize an MgUser's assigned o365 license (Microsoft.Graph), returns LicAccountSkuID,DisplayName,UserPrincipalName,LicenseFriendlyName
+    get-MgUserLicenseDetailTDO - Summarize an MgUser's assigned o365 license (Microsoft.Graph), returns LicAccountSkuID,DisplayName,UserPrincipalName,LicenseFriendlyName (as differntiated from Microsoft.Graph\get-MgUserLicenseDetail which returns 'A collection of this user's license details'.
 
     Evolved from get-MsolUserLicenseDetails (w deprecation of MSOL mod by M$). Distinct from test-EXOIsLicensed (which specifically queries for Exchange service grants nested in lics assigned to an AADUser)
+    
+    Also reflects yet another dumb-sh*t MS name change, MSOL get-msoluserLicenseDetails becomes mgraph\Get-MgUserLicenseDetail (drops the 's'), which leads to inconsistent naming over time.
     Originally inspired by the MSOnline/MSOL-based core lic hash & lookup code in Brad's "Get Friendly License Name for all Users in Office 365 Using PowerShell" script. 
     Since completely rewritten for AzureAD^H^H^HMicrosoft.Graph module, expanded output details. 
 
     .PARAMETER UPNs
     Array of Userprincipalnames to be looked up
+    .PARAMETER TenOrg
+    TenantTag value, indicating Tenants to connect to[-TenOrg 'TOL']
     .PARAMETER Credential
-    Credential to be used for connection
+    Use specific Credentials (defaults to Tenant-defined SvcAccount)[-Credentials [credential object]]
+    .PARAMETER UserRole
+    Credential User Role spec (SID|CSID|UID|B2BI|CSVC)[-UserRole SID]    
+    .PARAMETER silent
     .PARAMETER silent
     Switch to specify suppression of all but warn/error echos.(unimplemented, here for cross-compat)
     .PARAMETER ShowDebug
@@ -78,13 +86,24 @@ Function get-MgUserLicenseDetailTDO {
         [Parameter(Position = 0, Mandatory = $False, ValueFromPipeline = $true, HelpMessage = "An array of MgUser objects")][ValidateNotNullOrEmpty()]
             [alias('Userprincipalname')]
             [string]$UPNs,
-        #[Parameter(Mandatory = $false, HelpMessage = "Use specific Credentials (defaults to Tenant-defined SvcAccount)[-Credentials [credential object]]")]
-        #    [System.Management.Automation.PSCredential]$Credential = $global:credo365TORSID,
-        # above unsupported in connect-mgraph
-        [Parameter(HelpMessage="Silent output (suppress status echos)[-silent]")]
-            [switch] $silent,
-        [Parameter(HelpMessage = "Debugging Flag (use -verbose; retained solely for legacy compat)[-showDebug]")]
-            [switch] $showDebug
+        [Parameter(Mandatory=$FALSE,HelpMessage="TenantTag value, indicating Tenants to connect to[-TenOrg 'TOL']")]
+            [ValidateNotNullOrEmpty()]
+            #[ValidatePattern("^\w{3}$")]
+            [string]$TenOrg = $global:o365_TenOrgDefault,
+        [Parameter(HelpMessage="Use EXOv2 (ExchangeOnlineManagement) over basic auth legacy connection [-useEXOv2]")]
+            [switch] $useEXOv2=$true,
+        [Parameter(Mandatory = $false, HelpMessage = "Use specific Credentials (defaults to Tenant-defined SvcAccount)[-Credentials [credential object]]")]
+            [System.Management.Automation.PSCredential]$Credential,
+        [Parameter(Mandatory = $false, HelpMessage = "Credential User Role spec (SID|CSID|UID|B2BI|CSVC|ESVC|LSVC|ESvcCBA|CSvcCBA|SIDCBA)[-UserRole @('SIDCBA','SID','CSVC')]")]
+            # sourced from get-admincred():#182: $targetRoles = 'SID', 'CSID', 'ESVC','CSVC','UID','ESvcCBA','CSvcCBA','SIDCBA' ; 
+            #[ValidateSet("SID","CSID","UID","B2BI","CSVC","ESVC","LSVC","ESvcCBA","CSvcCBA","SIDCBA")]
+            # pulling the pattern from global vari w friendly err
+            [ValidateScript({
+                if(-not $rgxPermittedUserRoles){$rgxPermittedUserRoles = '(SID|CSID|UID|B2BI|CSVC|ESVC|LSVC|ESvcCBA|CSvcCBA|SIDCBA)'} ;
+                if(-not ($_ -match $rgxPermittedUserRoles)){throw "'$($_)' doesn't match `$rgxPermittedUserRoles:`n$($rgxPermittedUserRoles.tostring())" ; } ; 
+                return $true ; 
+            })]
+            [string[]]$UserRole = @('ESvcCBA','CSvcCBA','SIDCBA','SID')
     ) ;
     BEGIN{
         ${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name ;
