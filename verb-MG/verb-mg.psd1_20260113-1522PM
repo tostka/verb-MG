@@ -69,7 +69,7 @@ Description = 'MS Graph module-related functions'
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = @('add-MGUserLicense','connect-MG','push-TLSLatest','get-MGCodeCmdletPermissionsTDO','get-MGLicenseFullName','get-MGLicensePlanlist','get-MGOPLastSync','get-MgUserFull','get-MgUserLicenseDetailTDO','remove-MGUserLicense','set-MGUserUsageLocation','test-MGConnectionTDOTDO','test-MGUserIsLicensed','toggle-MGUDLicense','Remove-InvalidVariableNameChars','2b4','2b4c','fb4','Wait-MGOPSync')
+FunctionsToExport = @('connect-MG','push-TLSLatest','get-MGCodeCmdletPermissionsTDO','get-MGLicenseFullName','get-MGLicensePlanlist','get-MGOPLastSync','get-MgUserFull','get-MgUserLicenseDetailTDO','test-MGConnectionTDOTDO','Wait-MGOPSync')
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = '*'
@@ -151,4 +151,3 @@ PrivateData = @{
 # 9W+1oGhWmzEFsd+18F2cPADL+9GZu8Jdurhoil3SoLzLyDWic/fSVdUssQUoMvaA
 # evg0id1h57t+1aTSf7XvSg/P
 # SIG # End signature block
-

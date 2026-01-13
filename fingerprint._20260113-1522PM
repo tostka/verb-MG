@@ -1,6 +1,5 @@
 ﻿connect-MG:Credential
 connect-MG:RequiredScopes
-connect-MG:scopes
 connect-MG:UserRole
 connect-MG:TenOrg
 connect-MG:Path

@@ -12,7 +12,7 @@
 RootModule = 'verb-MG.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.2.0'
+ModuleVersion = '1.1.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -69,7 +69,7 @@ Description = 'MS Graph module-related functions'
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = @('add-MGUserLicense','connect-MG','push-TLSLatest','get-MGCodeCmdletPermissionsTDO','get-MGLicenseFullName','get-MGLicensePlanlist','get-MGOPLastSync','get-MgUserFull','get-MgUserLicenseDetailTDO','remove-MGUserLicense','set-MGUserUsageLocation','test-MGConnectionTDOTDO','test-MGUserIsLicensed','toggle-MGUDLicense','Remove-InvalidVariableNameChars','2b4','2b4c','fb4','Wait-MGOPSync')
+FunctionsToExport = @('connect-MG','push-TLSLatest','get-MGCodeCmdletPermissionsTDO','get-MGLicenseFullName','get-MGLicensePlanlist','get-MGOPLastSync','get-MgUserFull','get-MgUserLicenseDetailTDO','test-MGConnectionTDOTDO','Wait-MGOPSync')
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = '*'
@@ -129,8 +129,8 @@ PrivateData = @{
 # SIG # Begin signature block
 # MIIELgYJKoZIhvcNAQcCoIIEHzCCBBsCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNmwSo8FiF2SQPyBzpHN/hsNj
-# pNygggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUpWVdKiBGcukaCeSs1Op4HX4z
+# gg2gggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
 # MCwxKjAoBgNVBAMTIVBvd2VyU2hlbGwgTG9jYWwgQ2VydGlmaWNhdGUgUm9vdDAe
 # Fw0xNDEyMjkxNzA3MzNaFw0zOTEyMzEyMzU5NTlaMBUxEzARBgNVBAMTClRvZGRT
 # ZWxmSUkwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBALqRVt7uNweTkZZ+16QG
@@ -145,10 +145,9 @@ PrivateData = @{
 # AWAwggFcAgEBMEAwLDEqMCgGA1UEAxMhUG93ZXJTaGVsbCBMb2NhbCBDZXJ0aWZp
 # Y2F0ZSBSb290AhBaydK0VS5IhU1Hy6E1KUTpMAkGBSsOAwIaBQCgeDAYBgorBgEE
 # AYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwG
-# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBT06Oxk
-# iUrG/LSTKDn31E3mXw8RjzANBgkqhkiG9w0BAQEFAASBgDZ7Wov7u1pgMy7w8T1Q
-# wD0QPUmsfi3Qj+gDcuy8Nyj+09oPbGysmN54O5d+ndvfqCC+zdJ+h5VhRVAcgBXT
-# 9W+1oGhWmzEFsd+18F2cPADL+9GZu8Jdurhoil3SoLzLyDWic/fSVdUssQUoMvaA
-# evg0id1h57t+1aTSf7XvSg/P
+# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSxFWHs
+# 7HYFVTK8LL+WmhqhJFLixzANBgkqhkiG9w0BAQEFAASBgBReY+Dt69k91s+X3cU2
+# 1ZvevbuQivCfmHHc6Nz1bkmjAxPP8rnHhc/kKXaYjeOLrxC/C/hO3B97CvPBHo0j
+# v853j98loiLv+aYicpOCxWe+85Am6NIHuMUyd69V7VTajixT87kUJDWg5eipvvzJ
+# S9DjKo2x58Gn1PxaeKR98vJr
 # SIG # End signature block
-

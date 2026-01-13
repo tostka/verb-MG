@@ -1,0 +1,2990 @@
+﻿# verb-MG.psm1
+
+
+  <#
+  .SYNOPSIS
+  verb-MG - MS Graph module-related functions
+  .NOTES
+    Version     : 1.1.0
+  Author      : Todd Kadrie
+  Website     :	https://www.toddomation.com
+  Twitter     :	@tostka
+  CreatedDate : 5/14/2025
+  FileName    : verb-MG.psm1
+  License     : MIT
+  Copyright   : (c) 5/14/2025 Todd Kadrie
+  Github      : https://github.com/tostka
+  AddedCredit : REFERENCE
+  AddedWebsite:	REFERENCEURL
+  AddedTwitter:	@HANDLE / http://twitter.com/HANDLE
+  REVISIONS
+  * 5/14/2025 - 1.1.0.0
+  .DESCRIPTION
+  verb-MG - MS Graph module-related functions
+  .PARAMETER  PARAMNAME
+  PARAMDESC
+  .PARAMETER  Mbx
+  Mailbox identifier [samaccountname,name,emailaddr,alias]
+  .PARAMETER  Computer
+  Computer Name [-ComputerName server]
+  .PARAMETER  ServerFqdn
+  Server Fqdn (24-25char) [-serverFqdn lynms650.global.ad.toro.com)] 
+  .PARAMETER  Server
+  Server NBname (8-9chars) [-server lynms650)]
+  .PARAMETER  SiteName
+  Specify Site to analyze [-SiteName (USEA|GBMK|AUSYD]
+  .PARAMETER  Ticket
+  Ticket # [-Ticket nnnnn]
+  .PARAMETER  Path
+  Path [-path c:\path-to\]
+  .PARAMETER  File
+  File [-file c:\path-to\file.ext]
+  .PARAMETER  String
+  2-30 char string [-string 'word']
+  .PARAMETER  Credential
+  Credential (PSCredential obj) [-credential ]
+  .PARAMETER  Logonly
+  Run a Test no-change pass, and log results [-Logonly]
+  .PARAMETER  FORCEALLPINS
+  Reset All PINs (boolean) [-FORCEALLPINS:True]
+  .PARAMETER Whatif
+  Parameter to run a Test no-change pass, and log results [-Whatif switch]
+  .PARAMETER ShowProgress
+  Parameter to display progress meter [-ShowProgress switch]
+  .PARAMETER ShowDebug
+  Parameter to display Debugging messages [-ShowDebug switch]
+  .INPUTS
+  None
+  .OUTPUTS
+  None
+  .EXAMPLE
+  .EXAMPLE
+  .LINK
+  https://github.com/tostka/verb-MG/
+  #>
+
+
+    $script:ModuleRoot = $PSScriptRoot ;
+    $script:ModuleVersion = (Import-PowerShellDataFile -Path (get-childitem $script:moduleroot\*.psd1).fullname).moduleversion ;
+    $runningInVsCode = $env:TERM_PROGRAM -eq 'vscode' ;
+
+#*======v FUNCTIONS v======
+
+
+
+
+#*------v connect-mg.ps1 v------
+Function connect-MG {
+    <#
+    .SYNOPSIS
+    connect-MG - Establish authenticated session to Microsoft.Graph, also works as reconnect-MG (No need for separate self tests for connection, and reconnects if it's missing).
+    .NOTES
+    Version     : 1.0.0
+    Author      : Todd Kadrie
+    Website     :	http://www.toddomation.com
+    Twitter     :	@tostka / http://twitter.com/tostka
+    CreatedDate : 2020-05-27
+    FileName    : connect-MG.ps1
+    License     : MIT License
+    Copyright   : (c) 2020 Todd Kadrie
+    Github      : https://github.com/tostka/verb-mg
+    Tags        : Powershell,MicrosoftGraph,MGGraph,GraphAPI,AzureAD,Ported,Microsoft,verbMG
+    AddedCredit : REFERENCE
+    AddedWebsite:	URL
+    AddedTwitter:	URL
+    REVISIONS   :
+    * 1:01 PM 1/12/2026 revised connect rpt to put key bits, and then details add: dyn get-mgcontext props expansion, for outputs (acct v cba, only relevent in output)
+    * 3:24 PM 1/6/2026 fixed cbh, don't ipmo MG! ; WORKING, added CBH demo call scaffold for use in all calling dep scripts
+    * 4:18 PM 12/31/2025 WIP, drating down in the end range ; port from connect-AAD()
+    .DESCRIPTION
+    connect-MG - Establish authenticated session to Microsoft.Graph, also works as reconnect-MG (No need for separate self tests for connection, and reconnects if it's missing).        
+    .PARAMETER Credential
+    Credential to use for this connection [-credential [credential obj variable]
+    .PARAMETER UserRole
+    Credential User Role spec for credential discovery (SID|CSID|UID|B2BI|CSVC|ESVC|LSVC|ESvcCBA|CSvcCBA|SIDCBA)[-UserRole @('SIDCBA','SID','CSVC')]
+    .PARAMETER RequiredScopes
+    Scopes required for planned cmdlets to be executed[-RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]
+    .PARAMETER DefaultScopes
+    Fall-back Scopes for non-AppID, _Credential_ connections (defaults to working SID user/exo /domain/license mgmt roles)[-DefaultScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]
+    .PARAMETER RequiredScopes
+    Scopes required for planned cmdlets to be executed[-RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]
+    .PARAMETER Path
+    Path to script/module file to be parsed for matching cmdlets[-Path path-to\script.ps1]
+    .PARAMETER scriptblock
+    Scriptblock of code to be parsed for matching cmdlets[-scriptblock `$sbcode]
+    .PARAMETER Cmdlets
+    MGGraph cmdlet names to be Find-MgGraphCommand'd into delegated access -scope permissions (bypasses ASTParser discovery)[-Cmdlets @('get-MgDomain','get-MGContext')]
+    .PARAMETER silent
+    Silent output (suppress status echos)[-silent]
+    .PARAMETER TenOrg
+        Optional Tenant Tag (wo -Credential)[-TenOrg 'XYZ']
+    .PARAMETER silent
+    Switch to suppress all non-error echos
+    .INPUTS
+    None. Does not accepted piped input.
+    .OUTPUTS
+    None. Returns no objects or output.
+    .EXAMPLE
+    connect-MG
+    Demo connect using defaulted config (default profile driven TenOrg & UserRole spec)
+    .EXAMPLE
+    connect-MG -Credential $cred
+    Demo use of explicit credential object
+    .EXAMPLE
+    connect-MG -UserRole SIDCBA -TenOrg ABC -verbose  ; 
+    Demo use of UserRole (specifying a CBA variant), AND TenOrg spec, to connect (autoresolves against preconfigured credentials in profile)
+    .EXAMPLE
+    PS> write-verbose "BEGIN{ ..." ; 
+    PS>     #region cMG_SCAFFOLD ; #*------v cMG_SCAFFOLD v------
+    PS> if(-not (get-command  test-mgconnection)){
+    PS>     if(-not (get-module -list Microsoft.Graph -ea 0)){
+    PS>         $smsg = "MISSING Microsoft.Graph!" ; 
+    PS>         $smsg += "`nUse: install-module Microsoft.Graph -scope CurrentUser" ;
+    PS>         if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+    PS>         else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+    PS>     } ;             
+    PS> } ;
+    PS>     $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+    PS>     $o365Cred = $null ;
+    PS>     if($Credential -AND $MGCntxt.isConnected){
+    PS>         $smsg = "Explicit -Credential:$($Credential.username) -AND `$MGCntxt.isConnected: running pre:Disconnect-MgGraph" ; 
+    PS>         if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+    PS>         else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+    PS>         # Dmg returns a get-mgcontext into pipe, if you don't cap it corrupts the pipe on your current flow
+    PS>         $dOut = Disconnect-MgGraph -Verbose:($VerbosePreference -eq 'Continue')
+    PS>         $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+    PS>     };
+    PS>     if($Credential){
+    PS>         $smsg = "`Credential:Explicit credentials specified, deferring to use..." ;
+    PS>         if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+    PS>         else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+    PS>         write-verbose "get-TenantCredentials() return format: (emulating)" ; 
+    PS>         $o365Cred = [ordered]@{
+    PS>             Cred=$Credential ;
+    PS>             credType=$null ;
+    PS>         } ;
+    PS>         $uRoleReturn = resolve-UserNameToUserRole -UserName $Credential.username -verbose:$($VerbosePreference -eq "Continue") ; # Username
+    PS>         write-verbose "w full cred opt: $uRoleReturn = resolve-UserNameToUserRole -Credential $Credential -verbose = $($VerbosePreference -eq 'Continue')"  ; 
+    PS>         if($uRoleReturn.UserRole){
+    PS>             $o365Cred.credType = $uRoleReturn.UserRole ;
+    PS>         } else {
+    PS>             $smsg = "Unable to resolve `$credential.username ($($credential.username))"
+    PS>             $smsg += "`nto a usable 'UserRole' spec!" ;
+    PS>             if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } #Error|Warn|Debug
+    PS>             else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+    PS>             throw $smsg ;
+    PS>             Break ;
+    PS>         } ;
+    PS>     } else {
+    PS>         if($MGCntxt.isConnected){
+    PS>             if($MgCntxt.isUser){
+    PS>                 $TenantTag = $TenOrg = get-TenantTag -Credential $MgCntxt.Account ;
+    PS>                 $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+    PS>                 $credential = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue") ;
+    PS>             } elseif($MgCntxt.isCBA -AND $MgCntxt.AppName -match 'CBACert-(\w{3})'){
+    PS>                     #$MgCntxt.AppName.split('-')[-1]
+    PS>                     $TenantTag = $TenOrg = $matches[1]
+    PS>                     # also need credential
+    PS>                     $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+    PS>                     write-verbose "ret'd obj:$uRoleReturn = [ordered]@{     UserRole = $null ;     Service = $null ;     TenOrg = $null ; } " ;  
+    PS>                     $credRet = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue")
+    PS>                     $credential = $credRet.Cred ;
+    PS>             }else{
+    PS>                 $smsg = "UNABLE TO RESOLVE mgContext to a working TenOrg!" ;
+    PS>                 if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+    PS>                 else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+    PS>             }
+    PS>         } ; 
+    PS>         $pltGTCred=@{TenOrg=$TenOrg ; UserRole=$null; verbose=$($verbose)} ;
+    PS>         if($UserRole){
+    PS>             $smsg = "(`$UserRole specified:$($UserRole -join ','))" ;
+    PS>             if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+    PS>             else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+    PS>             $pltGTCred.UserRole = $UserRole;
+    PS>         } else {
+    PS>             $smsg = "(No `$UserRole found, defaulting to:'CSVC','SID' " ;
+    PS>             if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+    PS>             else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+    PS>             $pltGTCred.UserRole = 'CSVC','SID' ;
+    PS>         } ;
+    PS>         $smsg = "get-TenantCredentials w`n$(($pltGTCred|out-string).trim())" ;
+    PS>         if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level verbose }
+    PS>         else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+    PS>         $o365Cred = get-TenantCredentials @pltGTCred
+    PS>     } ;
+    PS>     if($o365Cred.credType -AND $o365Cred.Cred -AND $o365Cred.Cred.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+    PS>         $smsg = "(validated `$o365Cred contains .credType:$($o365Cred.credType) & `$o365Cred.Cred.username:$($o365Cred.Cred.username)" ;
+    PS>         if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
+    PS>         else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+    PS>         write-verbose "populate $credential with return, if not populated (may be required for follow-on calls that pass common $Credentials through)" ; 
+    PS>         if((gv Credential) -AND $Credential -eq $null){
+    PS>             $credential = $o365Cred.Cred ;
+    PS>         }elseif($credential.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+    PS>             $smsg = "(`$Credential is properly populated; explicit -Credential was in initial call)" ; 
+    PS>             if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+    PS>             else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+    PS>         } else {
+    PS>             $smsg = "`$Credential is `$NULL, AND $o365Cred.Cred is unusable to populate!" ;
+    PS>             $smsg = "downstream commands will *not* properly pass through usable credentials!" ;
+    PS>             if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+    PS>             else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+    PS>             throw $smsg ;
+    PS>             break ;
+    PS>         } ;
+    PS>     } else {
+    PS>         $smsg = "UNABLE TO RESOLVE FUNCTIONAL CredType/UserRole from specified explicit -Credential:$($Credential.username)!" ;
+    PS>         if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+    PS>         else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+    PS>         break ;
+    PS>     } ;         
+    PS>     $pltCMG = [ordered]@{
+    PS>         Credential = $Credential ;
+    PS>         verbose = $($VerbosePreference -eq "Continue")  ;
+    PS>     } ;
+    PS>     if((get-command Connect-MG).Parameters.keys -contains 'silent'){
+    PS>         $pltCMG.add('Silent',$silent) ;
+    PS>     } ;
+    PS>     #endregion  ; #*------^ END cMG_SCAFFOLD ^------
+    PS> } #  # BEG-E        
+    PS> write-verbose "PROCESS{..." ; 
+    PS>     connect-MG @pltCMG 
+    Demo full scaffolded call, collects dep $TenOrg, $UserRole and $Cred to drive connect-mg() calls.
+    .LINK
+    https://github.com/tostka/verb-mg
+    #>
+    # DONT DO THIS, IT HANGS TRYING TO LOAD THE ENTIRE MASSIVE LIBRARY! ALSO NEVER IPMO Microsoft.Graph, ITS MASSIVE! LET PSV3+ CALLS RESOLVE PROPER SUBMOD & DYN LOAD
+    ## #Requires -Modules Microsoft.Graph
+    [CmdletBinding()]
+    [Alias('cMG','rMG','reconnect-MG')]
+    PARAM(        
+        [Parameter(HelpMessage="Credential to use for this connection [-credential [credential obj variable]")]
+            [System.Management.Automation.PSCredential]$Credential,
+            # = $global:credo365TORSID, # defer to TenOrg & UserRole resolution
+        [Parameter(Mandatory=$False,HelpMessage="Scopes required for planned cmdlets to be executed[-RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]")]
+            [Alias('scopes')] # alias the connect-mggraph underlying param, for passthru
+            [array]$RequiredScopes,
+        [Parameter(Mandatory = $false, HelpMessage = "Credential User Role spec (SID|CSID|UID|B2BI|CSVC|ESVC|LSVC|ESvcCBA|CSvcCBA|SIDCBA)[-UserRole @('SIDCBA','SID','CSVC')]")]
+            # sourced from get-admincred():#182: $targetRoles = 'SID', 'CSID', 'ESVC','CSVC','UID','ESvcCBA','CSvcCBA','SIDCBA' ; 
+            #[ValidateSet("SID","CSID","UID","B2BI","CSVC","ESVC","LSVC","ESvcCBA","CSvcCBA","SIDCBA")]
+            # pulling the pattern from global vari w friendly err
+            [ValidateScript({
+                if(-not $rgxPermittedUserRoles){$rgxPermittedUserRoles = '(SID|CSID|UID|B2BI|CSVC|ESVC|LSVC|ESvcCBA|CSvcCBA|SIDCBA)'} ;
+                if(-not ($_ -match $rgxPermittedUserRoles)){throw "'$($_)' doesn't match `$rgxPermittedUserRoles:`n$($rgxPermittedUserRoles.tostring())" ; } ; 
+                return $true ; 
+            })]
+            [string[]]$UserRole = @('SIDCBA','SID','CSVC'),
+        [Parameter(Mandatory=$FALSE,HelpMessage="TenantTag value, indicating Tenants to connect to[-TenOrg 'TOL']")]
+            [ValidateNotNullOrEmpty()]
+            #[ValidatePattern("^\w{3}$")]
+            [string]$TenOrg = $global:o365_TenOrgDefault,
+        # as -scopes are mandated, splice over proxyable get-MGCodeCmdletPermissionsTDO inputs (which will be passed through in a call)
+        # note -scopes don't work with AppID conns, which have static scope perms built into the appreg
+        [Parameter(HelpMessage = "Path to script/module file to be parsed for matching cmdlets[-Path path-to\script.ps1]")]
+            #[ValidateScript( {Test-Path $_})][ValidatePattern( "\.(ps1|psm1|txt)$")]
+            [Alias('PSPath','File')]
+            #[system.io.fileinfo]
+            $Path,
+        [Parameter(HelpMessage = "Scriptblock of code to be parsed for matching cmdlets[-scriptblock `$sbcode]")]
+            [Alias('code')]
+            $scriptblock,    
+        [Parameter(HelpMessage = "MGGraph cmdlet names to be Find-MgGraphCommand'd into delegated access -scope permissions (bypasses ASTParser discovery)[-Cmdlets @('get-MgDomain','get-MGContext')]")]
+            [string[]]$Cmdlets,
+        [Parameter(Mandatory=$False,HelpMessage="Fall-back Scopes for non-AppID, _Credential_ connections (defaults to working SID user/exo /domain/license mgmt roles)[-DefaultScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]")]
+            [array]$DefaultScopes = @('Application.Read.All','Application.ReadWrite.All','AuditLog.Read.All','Chat.ReadWrite','DeviceManagementApps.Read.All','DeviceManagementApps.ReadWrite.All','DeviceManagementConfiguration.Read.All','DeviceManagementConfiguration.ReadWrite.All','DeviceManagementManagedDevices.Read.All','DeviceManagementManagedDevices.ReadWrite.All','DeviceManagementServiceConfig.Read.All','DeviceManagementServiceConfig.ReadWrite.All','Directory.Read.All','Directory.ReadWrite.All','Domain.Read.All','email','Group.Read.All','Group.ReadWrite.All','GroupMember.Read.All','GroupMember.ReadWrite.All','LicenseAssignment.Read.All','Mail.Send','openid','Organization.Read.All','Organization.ReadWrite.All','profile','RoleManagement.Read.Directory','User.Read','User.Read.All','User.ReadBasic.All','User.ReadWrite.All'),
+        [Parameter(HelpMessage="Silent output (suppress status echos)[-silent]")]
+            [switch] $silent
+    ) ;
+    BEGIN {        
+        #region PUSH_TLSLATEST ; #*------v push-TLSLatest v------
+        if(-not(gi function:push-TLSLatest -ea 0)){
+            function push-TLSLatest{
+                <#
+                .SYNOPSIS
+                push-TLSLatest - Elevates TLS on Powershell connections to highest available local version
+                .NOTES
+            
+                REVISIONS
+                * 4:41 PM 5/29/2025 init (replace scriptblock in psparamt)
+            
+                #>
+                [CmdletBinding()]
+                PARAM() ; 
+                $CurrentVersionTlsLabel = [Net.ServicePointManager]::SecurityProtocol ; # Tls, Tls11, Tls12 ('Tls' == TLS1.0)  ;
+                write-verbose "PRE: `$CurrentVersionTlsLabel : $($CurrentVersionTlsLabel )" ;
+                # psv6+ already covers, test via the SslProtocol parameter presense
+                if ('SslProtocol' -notin (Get-Command Invoke-RestMethod).Parameters.Keys) {
+                    $currentMaxTlsValue = [Math]::Max([Net.ServicePointManager]::SecurityProtocol.value__,[Net.SecurityProtocolType]::Tls.value__) ;
+                    write-verbose "`$currentMaxTlsValue : $($currentMaxTlsValue )" ;
+                    $newerTlsTypeEnums = [enum]::GetValues('Net.SecurityProtocolType') | Where-Object { $_ -gt $currentMaxTlsValue }
+                    if($newerTlsTypeEnums){
+                        write-verbose "Appending upgraded/missing TLS `$enums:`n$(($newerTlsTypeEnums -join ','|out-string).trim())" ;
+                    } else {
+                        write-verbose "Current TLS `$enums are up to date with max rev available on this machine" ;
+                    };
+                    $newerTlsTypeEnums | ForEach-Object {
+                        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor $_
+                    } ;
+                } ;
+            } ; 
+        } ; 
+        #endregion PUSH_TLSLATEST ; #*------^ END push-TLSLatest ^------
+        
+        
+        push-TLSLatest
+        $Verbose = [boolean]($VerbosePreference -eq 'Continue') ;
+        #region CONSTANTS_AND_ENVIRO ; #*======v CONSTANTS_AND_ENVIRO v======
+
+        #region LOCAL_CONSTANTS ; #*------v LOCAL_CONSTANTS v------
+        #endregion LOCAL_CONSTANTS ; #*------^ END LOCAL_CONSTANTS ^------         
+
+        #if(-not (get-variable rgxCertFNameSuffix -ea 0)){$rgxCertFNameSuffix = '-([A-Z]{3})$' ; } ; 
+        if(-not $rgxCertThumbprint){$rgxCertThumbprint = '[0-9a-fA-F]{40}' } ; # if it's a 40char hex string -> cert thumbprint  
+        if(-not $rgxSmtpAddr){$rgxSmtpAddr = "^([0-9a-zA-Z]+[-._+&'])*[0-9a-zA-Z]+@([-0-9a-zA-Z]+[.])+[a-zA-Z]{2,63}$" ; } ; # email addr/UPN
+        if(-not $rgxDomainLogon){$rgxDomainLogon = '^[a-zA-Z][a-zA-Z0-9\-\.]{0,61}[a-zA-Z]\\\w[\w\.\- ]+$' } ; # DOMAIN\samaccountname 
+
+        # 10:28 AM 1/12/2026 used by $psprppopd to dyn return only the populated of the below - run before each write-log call.
+        $prpGMGCTargets = 'TenantId','ClientId','Scopes','AuthType','TokenCredentialType','CertificateThumbprint','Account','AppName','ContextScope' ; 
+        #endregion CONSTANTS_AND_ENVIRO ; #*======^ CONSTANTS_AND_ENVIRO ^======
+        #-=-=-=-=-=-=-=-=
+        if(-not (get-command  test-mgconnection)){
+            TRY{
+                ipmo -fo -verb verb-mg -verbose 
+            } CATCH {$ErrTrapd=$Error[0] ;
+                write-host -foregroundcolor gray "TargetCatch:} CATCH [$($ErrTrapd.Exception.GetType().FullName)] {"  ;
+                $smsg = "`n$(($ErrTrapd | fl * -Force|out-string).trim())" ;
+                write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" ;
+                BREAK ; 
+            } ;
+            
+        } ;
+        $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+        if($Credential -AND $MGCntxt.isConnected){
+            $smsg = "Explicit -Credential:$($Credential.username) -AND `$MGCntxt.isConnected: running pre:Disconnect-MgGraph" ; 
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            # Dmg returns a get-mgcontext into pipe, if you don't cap it corrupts the pipe on your current flow
+            $dOut = Disconnect-MgGraph -Verbose:($VerbosePreference -eq 'Continue')
+            $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+        };
+        if(-not $Credential){
+            if($MGCntxt.isConnected){
+                if($MgCntxt.isUser){
+                    $TenantTag = $TenOrg = get-TenantTag -Credential $MgCntxt.Account ;
+                    $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                    $credential = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue") ;
+                } elseif($MgCntxt.isCBA -AND $MgCntxt.AppName -match 'CBACert-(\w{3})'){
+                        #$MgCntxt.AppName.split('-')[-1]
+                        $TenantTag = $TenOrg = $matches[1]
+                        # also need credential
+                        $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                        write-verbose "ret'd obj:$uRoleReturn = [ordered]@{     UserRole = $null ;     Service = $null ;     TenOrg = $null ; } " ;  
+                        $credRet = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue")
+                        $credential = $credRet.Cred ;
+                }else{
+                    $smsg = "UNABLE TO RESOLVE mgContext to a working TenOrg!" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                }
+            }ELSE{ ; 
+                if($UserRole){
+                    $smsg = "Using specified -UserRole:$( $UserRole -join ',' )" ;
+                    if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+                } else { $UserRole = @('SID','CSVC') } ;
+            } ; 
+            if($TenOrg){
+                $smsg = "Using explicit -TenOrg:$($TenOrg)" ;
+            } else {
+                switch -regex ($env:USERDOMAIN){
+                    ([regex]('(' + (( @($TORMeta.legacyDomain,$CMWMeta.legacyDomain)  |foreach-object{[regex]::escape($_)}) -join '|') + ')')).tostring() {$TenOrg = $env:USERDOMAIN.substring(0,3).toupper() } ;
+                    $TOLMeta.legacyDomain {$TenOrg = 'TOL' }
+                    default {throw "UNRECOGNIZED `$env:USERDOMAIN!:$($env:USERDOMAIN)" ; exit ; } ;
+                } ;
+                $smsg = "Imputed `$TenOrg from logged on USERDOMAIN:$($TenOrg)" ;
+            } ;
+            if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            $o365Cred = $null ;
+            $pltGTCred=@{TenOrg=$TenOrg ; UserRole= $UserRole; verbose=$($verbose)} ;
+            $smsg = "get-TenantCredentials w`n$(($pltGTCred|out-string).trim())" ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level verbose }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            $o365Cred = get-TenantCredentials @pltGTCred ;
+            if($o365Cred.credType -AND $o365Cred.Cred -AND $o365Cred.Cred.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+                $smsg = "(validated `$o365Cred contains .credType:$($o365Cred.credType) & `$o365Cred.Cred.username:$($o365Cred.Cred.username)" ;
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+                $Credential = $o365Cred.Cred ;
+            } else {
+                $smsg = "UNABLE TO RESOLVE FUNCTIONAL CredType/UserRole from specified explicit -Credential:$($Credential.username)!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                break ;
+            } ;
+        } else {
+            # test-exotoken only applies if $UseConnEXO  $false
+            $TenOrg = get-TenantTag -Credential $Credential ;
+        } ;
+        # build the cred etc once, for all below:
+        $pltCMG=[ordered]@{
+            #Credential = $Credential ;
+            verbose = $($verbose) ;
+            erroraction = 'STOP' ;
+            ErrorVariable = 'Err_CMG' ;
+        } ;
+        <#if((gcm connect-MgGraph).Parameters.keys -contains 'silent'){
+            $pltCMG.add('Silent',$false) ;
+        } ;
+        #>
+        if($Silent){
+            $smsg = "-Silent: Adding -NoWelcome to connect-mggraph splat" ; 
+            if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            $pltCMG.add('NoWelcome',$true) ; 
+        } ; 
+        # defer to resolve-UserNameToUserRole -Credential $Credential
+        $uRoleReturn = resolve-UserNameToUserRole -Credential $Credential ;
+        if($credential.username -match $rgxCertThumbprint){
+            $certTag = $uRoleReturn.TenOrg ;
+        } ; 
+        #-=-=-=-=-=-=-=-=
+
+        $smsg = "EXEC:get-TenantMFARequirement -Credential $($Credential.username)" ; 
+        if($silent){} else { 
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+        } ; 
+        $MFA = get-TenantMFARequirement -Credential $Credential ;
+        $smsg = "EXEC:get-TenantTag -Credential $($Credential.username)" ; 
+        if($silent){} else { 
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+        } ;         
+        $TenantTag = $TenOrg = get-TenantTag -Credential $Credential ; 
+        $sTitleBarTag = @("MG") ;
+        $sTitleBarTag += $TenantTag ;
+        $TenantID = get-TenantID -Credential $Credential ;
+
+    } ;
+    PROCESS {
+
+        $modname = 'Microsoft.Graph' ; 
+        <# 3:20 PM 1/5/2026 DON'T IPMO MICROSOFT.GRAPH! IT'S TO HUGE!
+        $smsg = "(load/install $($modname) module)" ; 
+        if($silent){} else { 
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+        } ;
+        $pltIMod = @{Name = $modname ; ErrorAction = 'Stop' ; verbose=$true} ;
+        $error.clear() ;
+        $oxmo = $null ; 
+        if(-not ( $oxmo = Get-Module @pltIMod  )){
+            Try {
+                $smsg = "Import-Module w`n$(($pltIMod|out-string).trim())" ;
+                if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                Import-Module @pltIMod ;
+            } Catch {
+                if(-not ($oxmo = Get-Module @pltIMod -listavailable)){
+                    if($env:computername -match $rgxMyBoxW){$pltIMod.add('scope','CurrentUser')} else { $pltIMod.add('scope','AllUsers')} ;
+                    $smsg = "MISSING $($modname)!: Install-Module? w`n$(($pltIMod|out-string).trim())" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+                    #Levels:Error|Warn|Info|H1|H2|H3|H4|H5|Debug|Verbose|Prompt|Success
+                    $pltIMod.verbose = $true ; 
+                    $bRet=Read-Host "Enter YYY to continue. Anything else will exit"  ; 
+                    if ($bRet.ToUpper() -eq "YYY") {
+                        Install-Module @pltIMod ; 
+                    } else {
+                            $smsg = "Invalid response. Exiting" ; 
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } 
+                        else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+                        #exit 1
+                        break ; 
+                    } ; #DoInstall
+                } ;  # IsInstalled
+            } ; # NotImportable
+        } ; # IsImported
+        #>
+        TRY { 
+
+            if(-not $uRoleReturn){
+                $smsg = "resolve-UserNameToUserRole -UserName $($Credential.username)..." ; 
+                if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                $uRoleReturn = resolve-UserNameToUserRole -UserName $Credential.username -verbose:$($VerbosePreference -eq "Continue") ; 
+                #$uRoleReturn = resolve-UserNameToUserRole -Credential $Credential -verbose = $($VerbosePreference -eq "Continue") ; 
+            } ; 
+            #$smsg = "get-AADToken..." ; 
+            # closest is get-mgcontext
+            $smsg = "get-mgcontext..." ; 
+            if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            #$token = get-AADToken -verbose:$($verbose) ;
+            $mgCtxt = get-mgContext -verbose:$($verbose) ;            
+            $smsg = "convert-TenantIdToTag -TenantId $($mgctxt.TenantId) `$mgCtxt.tenantid)" ; 
+            if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            # convert token.tenantid to the 3-letter TenOrg
+            $mgCtxtTag = convert-TenantIdToTag -TenantId $mgctxt.TenantId -verbose:$($verbose) ; 
+            #$Tenantdomain = convert-TenantIdToDomainName -TenantId $mgctxt.TenantId ;
+            #if( ($null -eq $mgCtxt) -OR ($mgCtxt.count -eq 0)){
+            if($null -eq $mgCtxt){
+                # not connected/authenticated
+                #Connect-MgGraph -TenantId $TenantID -Credential $Credential ; 
+                throw "" # gen an error to dump into generic CATCH block
+            }elseif($mgCtxt.count -gt 1){
+                #$smsg = "MULTIPLE CONTEXTS RETURNED!`n$(( ($mgCtxt) | ft -a  TenantId,UserId,LoginType |out-string).trim())" ; 
+                $tobj = $mgCtxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ; 
+                $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ; 
+                $smsg = "MULTIPLE CONTEXTS RETURNED!`n$(($mgCtxt | fl $prpPopd|out-string).trim())" ;  
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                # 12:57 PM 1/12/2026 loop the multis
+                foreach($mgCtxtX in $mgCtxt){
+                    $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                    $tobj = $mgCtxtX ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                    $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                    $smsg += "Connected to:`n$(($mgCtxtX | fl $prpPopd|out-string).trim())"  ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    $smsg = "`nScopes:$($mgCtxtX.scopes -join ', ')" ; 
+                    if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                }
+                # want to see if this winds up with a stack of parallel tokens
+            } else {
+                #$smsg = "Connected to Tenant:`n$((($mgCtxt) | fl TenantId,UserId,AuthType|out-string).trim())" ;  
+                $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                $tobj = $mgCtxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                $smsg += "Connected to:`n$(($mgCtxt | fl $prpPopd|out-string).trim())"  ;
+                if($silent){} else { 
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                    else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                } ;
+                $smsg = "`nScopes:$($mgCtxt.scopes -join ', ')" ; 
+                if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                # flip to resolve-UserNameToUserRole & direct eval the $mgCtxt values:
+                if( $mgCtxtTag  -eq $uRoleReturn.TenOrg){
+                    if($credential.username -match $rgxCertThumbprint){
+                        $smsg = "(Authenticated to MG:$($uRoleReturn.TenOrg) as $($uRoleReturn.FriendlyName))" ; 
+                    } else { 
+                        $smsg = "(Authenticated to MG:$($uRoleReturn.TenOrg) as $(($mgCtxt).userid))" ; 
+                    } ; 
+                    if($silent){} else { 
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                        else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    } ;   
+                } else { 
+                    if($credential.username -match $rgxCertThumbprint){
+                        $smsg = "(Disconnecting from $($($mgCtxtTag)) to reconn to -Credential Tenant as $($uRoleReturn.FriendlyName)" ; 
+                    } else { 
+                        $smsg = "(Disconnecting from $($($mgCtxtTag)) to reconn to -Credential Tenant:$($Credential.username.split('@')[1].tostring()))" ; 
+                    } ; 
+                    if($silent){} else { 
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                        else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    } ;                    
+                    $dout = Disconnect-MgGraph ; 
+                    throw "AUTHENTICATED TO WRONG TENANT FOR SPECIFIED CREDENTIAL" 
+                } ; 
+            } ; 
+
+        }CATCH {
+
+            if($credential.username -match $rgxCertThumbprint){
+                # RequiredScopes is ignored
+                $smsg =  "(UserName:Certificate Thumbprint detected)"
+                if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                $pltCMG.Add("CertificateThumbprint", [string]$Credential.UserName);                    
+                $pltCMG.Add("ClientId", [string]$Credential.GetNetworkCredential().Password);
+                # resolve TenantID (guid) from Credential
+                if($TenantID = get-TenantID -Credential $Credential){
+                    $pltCMG.Add("TenantId", [string]$TenantID);
+                } else { 
+                    $smsg = "UNABLE TO RESOLVE `$TENORG:$($TenOrg) TO FUNCTIONAL `$$($TenOrg)meta.o365_TenantDomain!" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } 
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+                    throw $smsg ; 
+                    Break ; 
+                } ; 
+                if($uRoleReturn.TenOrg){
+                    $TenOrg = $uRoleReturn.TenOrg  ; 
+                    $smsg = "(using CBA:cred:$($TenOrg):$([string]$uRoleReturn.FriendlyName))" ; 
+                    if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                } else {
+                    $smsg = "Unable to resolve `$credential.username ($($credential.username))"
+                    $smsg += "`nto a usable 'UserRole' spec!" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } #Error|Warn|Debug
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    throw $smsg ;
+                    Break ;
+                } ; 
+             } else { 
+                <# there's no interactive cred support with modern auth/mg, not even spec'ing the UPN
+                if ($Credential){
+                    $pltCMG.Add("AccountId", [string]$Credential.username);
+                    $smsg = "(using cred:$($credential.username))" ; 
+                    if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                } else {
+                    $smsg = "Missing dependant -Credential!" ; 
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+                    Break ; 
+                } ; 
+                #>
+                $pltgMGCP = [ordered]@{                    
+                    Verbose = $($VerbosePreference -eq 'Continue')
+                }
+                if(-not $RequiredScopes -OR $Path -OR $scriptblock -OR $Cmdlets){
+                    $smsg = "Interactive User Logon spec, with neither -RequiredScopes, nor Scope-discovery params (-Path, -scriptblock, -Cmdlets) specified" ; 
+                    $smsg += "`nPlease specify either -RequiredScopes, or a spec to discovery same, when running this command" ; 
+                    write-warning $smsg ;
+                    break ; 
+                }elseif($RequiredScopes){
+                    
+                }elseif($Path){
+                    $pltgMGCP.add('Path',$Path) ; 
+                }elseif($scriptblock){
+                    $pltgMGCP.add('scriptblock',$scriptblock) ; 
+                }elseif($Cmdlets){
+                    $pltgMGCP.add('Cmdlets',$Cmdlets) ; 
+                }else{
+                    $smsg = "invalid parameter combo!" ; 
+                    write-warning $smsg ;
+                    break ;
+                }
+                if($Path -OR $scriptblock -OR $Cmdlets){
+                    if(get-command get-MGCodeCmdletPermissionsTDO -ea STOP){
+                        $RequiredScopes = get-MGCodeCmdletPermissionsTDO @pltgMGCP ; 
+                    }else{
+                        $smsg = "missing dep:get-MGCodeCmdletPermissionsTDO()!" ; 
+                        $smsg += "`nPlease specify either -RequiredScopes, or a spec to discovery same, when running this command" ; 
+                        write-warning $smsg ;
+                        break ; 
+                    }
+                }
+                if($RequiredScopes){
+                    $pltCMG.Add('Scopes',$RequiredScopes) ; 
+                }else{
+                    $smsg = "Unresolved -RequiredScopes!" ; 
+                    write-warning $smsg ;
+                    break ;
+                } 
+            } 
+            if($uRoleReturn.UserRole -match 'CBA'){ $smsg = "Authenticating to MG:$($uRoleReturn.TenOrg), w CBA cred:$($uRoleReturn.FriendlyName)"  }
+            else {$smsg = "Authenticating to MG:$($uRoleReturn.TenOrg), w $($Credential.username)..."  ;} ; 
+            if($silent){} else { 
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            } ; 
+            
+            if($TenantID -AND ($pltCMG.keys -notcontains 'TenantID')){
+                $smsg = "Forcing TenantID:$($TenantID)" ; 
+                if($silent){} else { 
+                    $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                    $tobj = $mgCtxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                    $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                    $smsg += "Connected to:`n$(($mgCtxt | fl $prpPopd|out-string).trim())"  ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    $smsg = "`nScopes:$($mgCtxt.scopes -join ', ')" ; 
+                    if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                } ;                
+                $pltCMG.add('TenantID',[string]$TenantID) ;
+            } 
+            if(-not $MFA){
+                $smsg = "EXEC:Connect-MgGraph -Credential $($Credential.username) (no MFA, full credential)" ; 
+                if($silent){} else { 
+                    $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                    $tobj = $mgCtxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                    $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                    $smsg += "Connected to:`n$(($mgCtxt | fl $prpPopd|out-string).trim())"  ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    $smsg = "`nScopes:$($mgCtxt.scopes -join ', ')" ; 
+                    if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                } ;                
+                if($Credential.username){$pltCMG.add('Credential',$Credential)} ;
+            } else {
+                if($mgCtxt){
+                    if($silent){} else { 
+                        $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                        $tobj = $mgCtxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                        $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                        $smsg += "Connected to:`n$(($mgCtxt | fl $prpPopd|out-string).trim())"  ;
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                        $smsg = "`nScopes:$($mgCtxt.scopes -join ', ')" ; 
+                        if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                    } ;                
+                } ; 
+                if($pltCMG.keys -notcontains 'ClientId' -AND $pltCMG.keys -notcontains 'CertificateThumbprint' -AND $pltCMG.keys -notcontains 'AccountId'){
+                    # add UPN AccountID logon, if missing and non-CBA
+                    if($Credential.username -AND ($pltCMG.keys -notcontains 'AccountId') ){$pltCMG.add('AccountId',$Credential.username)} ;
+                } 
+            } ;
+
+            $smsg = "Connect-MgGraph w`n$(($pltCMG|out-string).trim())" ; 
+            if($silent){} else { 
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            } ;             
+
+            TRY {
+                $MGConnection = Connect-MgGraph @pltCMG ; 
+                if($MGConnection -is [system.array]){
+                    $smsg = "MULTIPLE TENANT CONNECTIONS RETURNED BY connect-MgGraph!" ; 
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Error } #Error|Warn|Debug 
+                    else{ write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    throw "MULTIPLE TENANT CONNECTIONS RETURNED BY connect-MgGraph!"
+                
+                } else {
+                    if($silent){} else { 
+                        $smsg = "(single Tenant connection returned)" 
+                        # need to reqry the token for updated status
+                        #$mgCtxt = [Microsoft.Open.Azure.AD.CommonLibrary.AzureSession]::AccessTokens ; # direct call option
+                        $mgCtxt = get-mgContext -verbose:$($verbose) ;
+                        $mgCtxtTag = convert-TenantIdToTag -TenantId $mgctxt.TenantId -verbose:$($verbose) ; 
+                        if($mgCtxt){
+                            if($silent){} else { 
+                                $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                                $tobj = $mgCtxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                                $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                                $smsg += "Connected to:`n$(($mgCtxt | fl $prpPopd|out-string).trim())"  ;
+                                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                                $smsg = "`nScopes:$($mgCtxt.scopes -join ', ')" ; 
+                                if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                            } ;
+                        } ; 
+                    } ; 
+                } ; 
+            } CATCH {
+                $ErrTrapd=$Error[0] ;
+                $smsg = "Failed processing $($ErrTrapd.Exception.ItemName). `nError Message: $($ErrTrapd.Exception.Message)`nError Details: $($ErrTrapd)" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                else{ write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                #-=-record a STATUSWARN=-=-=-=-=-=-=
+                $statusdelta = ";WARN"; # CHANGE|INCOMPLETE|ERROR|WARN|FAIL ;
+                if(gv passstatus -scope Script -ea 0){$script:PassStatus += $statusdelta } ;
+                if(gv -Name PassStatus_$($tenorg) -scope Script -ea 0){set-Variable -Name PassStatus_$($tenorg) -scope Script -Value ((get-Variable -Name PassStatus_$($tenorg)).value + $statusdelta)} ; 
+                #-=-=-=-=-=-=-=-=
+                $smsg = "FULL ERROR TRAPPED (EXPLICIT CATCH BLOCK WOULD LOOK LIKE): } catch[$($ErrTrapd.Exception.GetType().FullName)]{" ; 
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level ERROR } #Error|Warn|Debug 
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                Break #Opts: STOP(debug)|EXIT(close)|CONTINUE(move on in loop cycle)|BREAK(exit loop iteration)|THROW $_/'CustomMsg'(end script with Err output)
+            } ; 
+            
+            if($silent){} else { 
+                $smsg = "`n$(($MGConnection |ft -a|out-string).trim())" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                else{ write-host -foregroundcolor white "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            } ; 
+            # can still detect status of last command with $? ($true = success, $false = $failed), and use the $error[0] to examine any errors
+            if ($?) { 
+                #write-verbose -verbose:$true  "(connected to MgGraph ver2)" ; 
+                Remove-PSTitlebar 'MG' -verbose:$($VerbosePreference -eq "Continue") 
+                # work with the current AzureSession $mgCtxt instead - shift into END{}
+            } ;
+            
+        } ; # CATCH-E # err indicates no authenticated connection
+    } ;  # PROC-E
+    END {
+        $smsg = "get-mgContext..." ;
+        if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+        $mgCtxt = get-mgContext -verbose:$($verbose) ;
+        $smsg = "convert-TenantIdToTag -TenantId $($mgctxt.TenantId) (`$mgCtxt).tenantid)" ;
+        if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+        # convert token.tenantid to the 3-letter TenOrg
+        $mgCtxtTag = convert-TenantIdToTag -TenantId $mgctxt.TenantId -verbose:$($verbose) ;
+        $Tenantdomain = convert-TenantIdToDomainName -TenantId $mgctxt.TenantId ;
+        if( ($null -eq $mgCtxt) -OR ($mgCtxt.count -eq 0)){
+            $smsg = "NOT authenticated to any o365 Tenant MgGraph!" ; 
+            if($credential.username -match $rgxCertThumbprint){
+                $smsg = "Connecting to -Credential Tenant as $($uRoleReturn.FriendlyName)" ;
+            } else {
+                $smsg = "Connecting to -Credential Tenant:$($Credential.username.split('@')[1].tostring()))" ;
+            } ;
+            if($silent){} else {
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            } ;
+            Disconnect-MgGraph ;
+            connect-MG -verbose:$($verbose) ; 
+        } else {
+            if($silent){} else {
+                $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                $tobj = $mgCtxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                $smsg += "Connected to:`n$(($mgCtxt | fl $prpPopd|out-string).trim())"  ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                $smsg = "`nScopes:$($mgCtxt.scopes -join ', ')" ; 
+                if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            } ;
+            # flip to resolve-UserNameToUserRole & direct eval the $mgCtxt values:
+            if( $mgCtxtTag  -eq $uRoleReturn.TenOrg){
+                if($credential.username -match $rgxCertThumbprint){
+                    $smsg = "(Authenticated to MG:$($uRoleReturn.TenOrg) as $($uRoleReturn.FriendlyName))" ;
+                } else {
+                    $smsg = "(Authenticated to MG:$($uRoleReturn.TenOrg) as $(($mgCtxt).userid))" ;
+                } ;
+                if($silent){} else {
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                    else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                } ;
+            } else {
+                if($credential.username -match $rgxCertThumbprint){
+                    $smsg = "(Disconnecting from $($($mgCtxtTag)) to reconn to -Credential Tenant as $($uRoleReturn.FriendlyName)" ;
+                } else {
+                    $smsg = "(Disconnecting from $($($mgCtxtTag)) to reconn to -Credential Tenant:$($Credential.username.split('@')[1].tostring()))" ;
+                } ;
+                if($silent){} else {
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                    else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;;
+                } ;
+                $dout = Disconnect-MgGraph ;
+                throw "AUTHENTICATED TO WRONG TENANT FOR SPECIFIED CREDENTIAL" ;
+            } ;
+        } ; 
+
+    } ; # END-E
+}
+
+#*------^ connect-mg.ps1 ^------
+
+
+#*------v get-MGCodeCmdletPermissionsTDO.ps1 v------
+function get-MGCodeCmdletPermissionsTDO {
+        <#
+        .SYNOPSIS
+        get-MGCodeCmdletPermissionsTDO - wrapper for verb-dev\get-codeprofileAST() that parses [verb]-MG[noun] cmdlets from a specified -file or -scriptblock, and reseolves the necessary connect-mgGraph -scope permissions, using the Find-MgGraphCommand  command.
+        .NOTES
+        Version     : 0.0.
+        Author      : Todd Kadrie
+        Website     : http://www.toddomation.com
+        Twitter     : @tostka / http://twitter.com/tostka
+        CreatedDate : 2024-06-07
+        FileName    : get-MGCodeCmdletPermissionsTDO
+        License     : MIT License
+        Copyright   : (c) 2024 Todd Kadrie
+        Github      : https://github.com/tostka/verb-AAD
+        Tags        : Powershell,AzureAD,Authentication,Test
+        AddedCredit : 
+        AddedWebsite: 
+        AddedTwitter: 
+        REVISIONS
+        * 3:49 PM 9/5/2025 FUNDEMENTAL FLAW: find-mgGraphCommand DOES NOT HAVE ALL MGGRAPH CMDLET PERMS! And it doesn't throw errors on empty perms, it just returns NOTHING
+            So I coded in some low-brow post empty-perm sanity checks: If the cmd has -confim/-force/-whatif, it's likely potentially destructive. 
+            If it has parameters on psScriptAnalyzer's change trigger verbv list: New, Set, Remove, Start, Stop, Restart, Reset, and Update - likewise
+            Outputs a warning to manually lookup the M$ Dox Permissions table for each cmdlet.
+        * 1:49 PM 5/14/2025 add: -cmdlets, bypasses AST parsing cuts right to find-mgGraphCommand expansion; additional verbose status echos (as it's returning very limited set of perms)
+        * 4:37 PM 5/12/2025 retweaked expansion; found that the cmdlet name filtering wasn't working as a raw [regex], had to .tostring() the regex to get it to return more than a single item
+        * 12:23 PM 5/6/2025 wrapper for verb-dev\get-codeprofileAST() that parses [verb]-MG[noun] cmdlets from a specified -file or -scriptblock, and reseolves the necessary connect-mgGraph delegated access -scope permissions, using the Find-MgGraphCommand command.
+        .DESCRIPTION
+        wrapper for verb-dev\get-codeprofileAST() that parses [verb]-MG[noun] cmdlets from a specified -file or -scriptblock, and reseolves the necessary connect-mgGraph -scope permissions, using the Find-MgGraphCommand command.
+        .PARAMETER  File
+        Path to script/module file to be parsed for matching cmdlets[-Path path-to\script.ps1]
+        .PARAMETER scriptblock
+        Scriptblock of code to be parsed for matching cmdlets[-scriptblock `$sbcode]
+        .PARAMETER CommandFilterRegex
+        Regular expression filter to match commands within GenericCommand lines parsed from subject code (defaults \w+-mg\w+)[-CommandFilterRegex '\w+-mgDomain\w+']
+        .PARAMETER ModuleFilterRegex 
+        Regular expression filter to match commands solely in matching Module (defaults 'Microsoft\.Graph')[-CommandFilterRegex 'Microsoft\.Graph\.Identity\.DirectoryManagement\s\s\s']
+        .PARAMETER Cmdlets
+        MGGraph cmdlet names to be Find-MgGraphCommand'd into delegated access -scope permissions (bypasses ASTParser discovery)
+        .INPUTS
+        Does not accept piped input
+        .OUTPUTS
+        None (records transcript file)
+        .EXAMPLE
+        PS> $PermsRqd = get-MGCodeCmdletPermissionsTDO -path D:\scripts\new-MGDomainRegTDO.ps1 ; 
+        Typical pass script pass, using the -path param
+        .EXAMPLE
+        PS> $PermsRqd = get-MGCodeCmdletPermissionsTDO -scriptblock (gcm -name get-MGCodeCmdletPermissionsTDO).definition ; 
+        Typical function pass, using get-command to return the definition/scriptblock for the subject function.
+        .EXAMPLE
+        PS> write-verbose "Typically from the BEGIN{} block of an Advanced Function, or immediately after PARAM() block" ; 
+        PS> $Verbose = [boolean]($VerbosePreference -eq 'Continue') ;
+        PS> $rPSCmdlet = $PSCmdlet ;
+        PS> $rPSScriptRoot = $PSScriptRoot ;
+        PS> $rPSCommandPath = $PSCommandPath ;
+        PS> $rMyInvocation = $MyInvocation ;
+        PS> $rPSBoundParameters = $PSBoundParameters ;
+        PS> $pltRvEnv=[ordered]@{
+        PS>     PSCmdletproxy = $rPSCmdlet ;
+        PS>     PSScriptRootproxy = $rPSScriptRoot ;
+        PS>     PSCommandPathproxy = $rPSCommandPath ;
+        PS>     MyInvocationproxy = $rMyInvocation ;
+        PS>     PSBoundParametersproxy = $rPSBoundParameters
+        PS>     verbose = [boolean]($PSBoundParameters['Verbose'] -eq $true) ;
+        PS> } ;
+        PS> $rvEnv = resolve-EnvironmentTDO @pltRVEnv ;  
+        PS> if($rvEnv.isScript){
+        PS>     if($rvEnv.PSCommandPathproxy){ $prxPath = $rvEnv.PSCommandPathproxy }
+        PS>     elseif($script:PSCommandPath){$prxPath = $script:PSCommandPath}
+        PS>     elseif($rPSCommandPath){$prxPath = $rPSCommandPath} ; 
+        PS>     $PermsRqd = get-MGCodeCmdletPermissionsTDO -Path $prxPath  ; 
+        PS> } ; 
+        PS> if($rvEnv.isFunc){
+        PS>     $PermsRqd = get-MGCodeCmdletPermissionsTDO -Path (gcm -name $rvEnv.FuncName).definition ; 
+        PS> } ; 
+        Demo leveraging resolve-environmentTDO outputs
+        .LINK
+        https://bitbucket.org/tostka/verb-dev/
+        #>  
+        [CmdletBinding()]
+        ## PSV3+ whatif support:[CmdletBinding(SupportsShouldProcess)]
+        ###[Alias('Alias','Alias2')]
+        PARAM(
+            [Parameter(Position = 0,ValueFromPipeline = $true, HelpMessage = "Path to script/module file to be parsed for matching cmdlets[-Path path-to\script.ps1]")]
+                [ValidateScript( {Test-Path $_})][ValidatePattern( "\.(ps1|psm1|txt)$")]
+                [Alias('PSPath','File')]
+                [system.io.fileinfo]$Path,
+            [Parameter(Position = 1,HelpMessage = "Scriptblock of code to be parsed for matching cmdlets[-scriptblock `$sbcode]")]
+                [Alias('code')]
+                $scriptblock,
+            [Parameter(HelpMessage = "Regular expression filter to match commands within GenericCommand lines parsed from subject code (defaults \w+-mg\w+)[-CommandFilterRegex '\w+-mgDomain\w+']")]
+                [regex]$CommandFilterRegex = '\w+\-mg\w+',
+            [Parameter(HelpMessage = "Regular expression filter to match commands solely in matching Module (defaults 'Microsoft\.Graph')[-CommandFilterRegex 'Microsoft\.Graph\.Identity\.DirectoryManagement\s\s\s']")]
+                [regex]$ModuleFilterRegex = '^Microsoft\.Graph',
+            [Parameter(HelpMessage = "MGGraph cmdlet names to be Find-MgGraphCommand'd into delegated access -scope permissions (bypasses ASTParser discovery)[-Cmdlets @('get-MgDomain','get-MGContext')]")]
+                [string[]]$Cmdlets
+        );  
+        BEGIN {
+            $Verbose = ($VerbosePreference -eq "Continue") ;
+            if($Cmdlets){
+                $smsg = "-Cmdlets (skipping -path/-scriptblock AST parsing)" ; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            }else{
+                TRY{
+                    if(-NOT ($path -OR $scriptblock)){
+                        throw "neither -Path or -Scriptblock specified: Please specify one or the other when running" ; 
+                        break ; 
+                    } elseif($path -AND $scriptblock){
+                        throw "BOTH -Path AND -Scriptblock specified: Please specify EITHER one or the other when running" ; 
+                        break ; 
+                    } ;  
+                    if ($Path -AND $Path.GetType().FullName -ne 'System.IO.FileInfo'){
+                        $smsg = "(convert path to gci)" ; 
+                        if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                        $Path = get-childitem -path $Path ; 
+                    } ;
+                    if ($scriptblock -AND $scriptblock.GetType().FullName -ne 'System.Management.Automation.ScriptBlock'){
+                        $smsg = "(recast -scriptblock to [scriptblock])" ; 
+                        if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                        $scriptblock= [scriptblock]::Create($scriptblock) ; 
+                    } ;
+                } CATCH {
+                    $ErrTrapd=$Error[0] ;
+                    $smsg = "`n$(($ErrTrapd | fl * -Force|out-string).trim())" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } #Error|Warn|Debug
+                    else{ write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                } ; 
+            } ; 
+        } ;
+        PROCESS {
+            $sw = [Diagnostics.Stopwatch]::StartNew();
+            if($Cmdlets){
+                $smsg = "-cmdlets specified:`n$(($Cmdlets|out-string).trim())" ;                     
+            }else{
+                $pltgCPA=[ordered]@{
+                    erroraction = 'STOP' ;  
+                    GenericCommands = $true ;               
+                } ;
+                if($Path){ $pltgCPA.add('Path',$Path.fullname)}
+                if($ScriptBlock){ $pltgCPA.add('ScriptBlock',$ScriptBlock)}
+                $smsg = "get-CodeProfileAST  w`n$(($pltgCPA|out-string).trim())" ; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                $GCmds = (get-CodeProfileAST @pltgCPA).GenericCommands ; 
+                # shouldn't need .tostring() on a regex type, but w returns full list, wo returns just 1 item.
+                $GCmds.extent.text | ?{$_ -match $CommandFilterRegex.tostring()} | foreach-object {$cmdlets += $matches[0]} ; 
+                $smsg = "Normalize & unique names"; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                if($ModuleFilterRegex){
+                    $cmdlets = $cmdlets | select -unique | foreach-object { 
+                        get-command -name $_| ?{$_.source -match $ModuleFilterRegex} 
+                    } | select -expand name | select -unique ;         
+                }else {
+                    $cmdlets = $cmdlets | foreach-object { 
+                        get-command -name $_| select -expand name 
+                    } | select -unique ;
+                }
+                $smsg = "Parsed following matching cmdlets:`n$(($cmdlets|out-string).trim())" ;   
+            } ;               
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            write-host -foregroundcolor yellow "Resolving $($cmdlets.count) cmdlets against Find-MgGraphCommand..." ; 
+            $PermsRqd = @() ;         
+            write-host -foregroundcolor yellow "[" -nonewline ; 
+            $cmdlets |foreach-object{
+                $thisCmdlet = $_ ; 
+                $smsg = "$($thisCmdlet)" ; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                write-host -NoNewline '.' ; 
+                $thisCommand = get-command -Name $thisCmdlet -EA STOP
+                #$PermsRqd += Find-MgGraphCommand -command $thisCmdlet -ea 0| Select -First 1 -ExpandProperty Permissions | Select -Unique name ; 
+                $thisPerm = $null ; 
+                $thisPerm = Find-MgGraphCommand -command $thisCmdlet -ea 0| Select -First 1 -ExpandProperty Permissions | Select -Unique name ; 
+                if($thisPerm){
+                    $PermsRqd += $thisPerm ; 
+                    $smsg = "(Find-MgGraphCommand -command $($thisCmdlet) returned Permissions:`n$(($thisPerm -join ','|out-string).trim()))" ; 
+                }else {
+                    $smsg = "($($Cmdlet):no Permissions returned (by Microsoft.Graph.Authentication\Find-MgGraphCommand())" ; 
+                    <# 11:27 AM 9/5/2025 issues: Find-MgGraphCommand IS MISSING A TON OF CMDLET PERMS!
+                    remove-mgdomain is clearly destructive, but returns no permissions in the cmd:
+
+                    [How to get all Graph API permissions required to run selected code using PowerShell](https://doitpshway.com/how-to-get-all-graph-api-permissions-required-to-run-selected-code-using-powershell)
+                    Drawbacks ( to relying on Find-MgGraphCommand):
+                    * Official command Find-MgGraphCommand is used to translate command/URI calls to required permissions, 
+                            doesn't contain permissions for all commands/URIs (but this will be hopefully solved in the future)
+                    * Returns all permissions that can be used, not just the least one (but I am trying to solve this on my own)
+                    * URIs passed via parameter splatting or through variables aren't detected right now
+                    * but you will be notified about such issue, so you can solve this manually       
+                    
+                    built deps etc for: Get-CodeGraphPermissionRequirement
+                    and ran it: much more code, same garbage output:
+                    #-=-=-=-=-=-=-=-=
+                    VERBOSE: 'remove-mgdomain' doesn't need any permissions?!                        
+
+                    simple test on noperms:
+                    - does it have -confirm|-force|-whatif support? => implies it's potentially destructive, and shouuld require *some* kind of perms, throw an error back
+                    #>
+                    $riskParams = @() ; 
+                    $rgxShouldProcParams = 'confirm|force|whatif'
+                    if($hasShouldProcParams = $thisCommand.parameters.keys -match $rgxShouldProcParams){
+                        $riskParams = @($hasShouldProcParams)
+                        $smsg += "`nBUT!:$($thisCmdlet) has following risk-reflecting parameters:$($hasShouldProcParams -join ',') " ; ; 
+                    } ; 
+                    $verbsPSUseShouldProcessForStateChangingFunctions = @('New','Set','Remove','Start','Stop','Restart','Reset','and Update') ; 
+                    $rgxverbsPSUseShouldProcessForStateChangingFunctions = [regex]$rgx = ('(' + (($verbsPSUseShouldProcessForStateChangingFunctions |%{[regex]::escape($_)}) -join '|') + ')') ;
+                    if($StateChgParams = $thisCommand.parameters.keys -match $rgxverbsPSUseShouldProcessForStateChangingFunctions){
+                        $riskParams = $(@($riskParams);@($StateChgParams)) ; 
+                        $smsg += "`nBUT!:$($thisCmdlet) has following ShouldProcessForStateChanging parameters:$($riskparams -join ',') " ; ; 
+                    } ; 
+                    if($riskParams){
+                        $smsg += "`nFind-MgGraphCommand null Permissions return is likely *WRONG*: you should search for the doc page for:$($thisCmdlet), and manually assemble the connect-mgGraph -scope array from those specifications." ;
+                        $smsg += "`n(Find the Description: Permissions table, for the *accurate* perms for the cmdlet)" ;
+                    } ; 
+                } ; 
+                if($riskParams){
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+                }else{
+                    if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                } ; 
+            } ; 
+            write-host -foregroundcolor yellow "]" ; 
+            $PermsRqd = $PermsRqd.name | select -unique ;
+        } ; # PROC-E  
+        END {
+            $sw.Stop() ;
+            $smsg = ("Elapsed Time: {0:dd}d {0:hh}h {0:mm}m {0:ss}s {0:fff}ms" -f $sw.Elapsed) ; 
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            if($PermsRqd){
+                $PermsRqd | write-output ; 
+                $smsg = "(Resolved Perm Names:" ; 
+                #$smsg += "`n$((|out-string).trim())" ; 
+                $smsg += "`n'$(($PermsRqd) -join "','")'" ; 
+                $smsg += "`nCan be cached into a `$MGPermissionsScope etc, to skip this lengthy -scope discovery process)" ; 
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                #Levels:Error|Warn|Info|H1|H2|H3|H4|H5|Debug|Verbose|Prompt|Success
+            } else { 
+                $false | write-output 
+            } ; 
+        } ; # END-E
+    }
+
+#*------^ get-MGCodeCmdletPermissionsTDO.ps1 ^------
+
+
+#*------v get-MGLicenseFullName.ps1 v------
+function get-MGLicenseFullName {
+<#
+    .SYNOPSIS
+    get-MGLicenseFullName - Resolve an AzureAD License object's 'SkuPartNumber' to a friendly name ('Full Name')
+    .NOTES
+    Version     : 1.0.0
+    Author      : Todd Kadrie
+    Website     :	http://www.toddomation.com
+    Twitter     :	@tostka / http://twitter.com/tostka
+    CreatedDate : 2022-
+    FileName    : 
+    License     : MIT License
+    Copyright   : (c) 2022 Todd Kadrie
+    Github      : https://github.com/tostka/verb-XXX
+    Tags        : Powershell
+    AddedCredit : Robert Prust (powershellpr0mpt)
+    AddedWebsite: https://powershellpr0mpt.com
+    AddedTwitter:
+    REVISIONS    
+    * 9:16 AM 1/6/2026 port from vaad\get-AADLicenseFullName() -> vmg\get-MGLicenseFullName
+    * 12:56 PM 3/24/2022 flipped unresolved items to notation in verbose - there's too many on a regular basis to throw visible errors in outputs ; 
+      spliced in some missing in our Tenant (where could document) ; init
+    .DESCRIPTION
+    get-MGLicenseFullName - Resolve an AzureAD License object's 'SkuPartNumber' to a friendly name ('Full Name')
+    Simple indexed hash of AzureAD 'SkuPartNumber's mapping to a more lengthy common description of the license purpose
+    .PARAMETER Name
+    'Name' or 'SkuPartNumber' of an AzureAD License object (as returned by AzureAD: Get-AzureADSubscribedSku cmdlet)[-Name EXCHANGESTANDARD]
+    .EXAMPLE
+    PS> get-MGLicenseFullName -Name 'VISIOCLIENT'
+    Resolve the SkuPartNumber 'VISIOCLIENT' to the equivelent descriptive name
+    .LINK
+    https://github.com/powershellpr0mpt/PSP-Office365/blob/master/PSP-Office365/public/Get-Office365License.ps1
+    https://github.com/tostka/verb-MG
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$false,ValueFromPipeline=$true)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('SkuPartNumber')]
+        [string[]]$Name
+    )
+    BEGIN{
+        ${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name ;
+        $verbose = ($VerbosePreference -eq "Continue") ; 
+        
+        # https://docs.microsoft.com/en-us/azure/active-directory/users-groups-roles/licensing-service-plan-reference
+        # [Product names and service plan identifiers for licensing in Azure Active Directory | Microsoft Docs](https://docs.microsoft.com/en-us/azure/active-directory/users-groups-roles/licensing-service-plan-reference)
+
+        <# whatis an F1 lic: Office 365 F1 is designed to enable Firstline Workers to do their best work.
+        Office 365 F1 provides easy-to-use tools and services to help these workers
+        easily create, update, and manage schedules and tasks, communicate and work
+        together, train and onboard, and quickly receive company news and announcements.
+        #>
+
+        # updating sort via text: gc c:\tmp\list.txt | sort ;
+        $Skus = [ordered]@{
+            "AAD_BASIC"                          = "Azure Active Directory Basic"
+            "AAD_PREMIUM"                        = "Azure Active Directory Premium"
+            "ATA"                                = "Advanced Threat Analytics"
+            "ATP_ENTERPRISE"                     = "Exchange Online Advanced Threat Protection"
+            "BI_AZURE_P1"                        = "Power BI Reporting and Analytics"
+            "CRMIUR"                             = "CMRIUR"
+            "CRMPLAN2"                           = "MICROSOFT DYNAMICS CRM ONLINE BASIC"
+            "CRMSTANDARD"                        = "Microsoft Dynamics CRM Online Professional"
+            "DEFENDER_ENDPOINT_P1" =  ""
+            "DESKLESSPACK"                       = "Office 365 (Plan K1)"
+            "DESKLESSPACK_GOV"                   = "Microsoft Office 365 (Plan K1) for Government"
+            "DESKLESSWOFFPACK"                   = "Office 365 (Plan K2)"
+            "DEVELOPERPACK"                      = "OFFICE 365 ENTERPRISE E3 DEVELOPER"
+            "DYN365_CUSTOMER_INSIGHTS_ATTACH" =  ""
+            "DYN365_CUSTOMER_INSIGHTS_BASE" = ""
+            "DYN365_ENTERPRISE_CUSTOMER_SERVICE" = "DYNAMICS 365 FOR CUSTOMER SERVICE ENTERPRISE EDITION"
+            "DYN365_ENTERPRISE_P1_IW"            = "Dynamics 365 P1 Trial for Information Workers"
+            "DYN365_ENTERPRISE_PLAN1"            = "Dynamics 365 Customer Engagement Plan Enterprise Edition"
+            "DYN365_ENTERPRISE_SALES"            = "Dynamics Office 365 Enterprise Sales"
+            "DYN365_ENTERPRISE_SALES_CUSTOMERSERVICE" = "DYNAMICS 365 FOR SALES AND CUSTOMER SERVICE ENTERPRISE EDITION"
+            "DYN365_ENTERPRISE_TEAM_MEMBERS"     = "Dynamics 365 For Team Members Enterprise Edition"
+            "DYN365_FINANCIALS_BUSINESS_SKU"     = "Dynamics 365 for Financials Business Edition"
+            "DYN365_FINANCIALS_TEAM_MEMBERS_SKU" = "Dynamics 365 for Team Members Business Edition"
+            "DYNAMICS_365_FOR_OPERATIONS"        = "DYNAMICS 365 UNF OPS PLAN ENT EDITION"
+            "ECAL_SERVICES"                      = "ECAL"
+            "EMS"                                = "Enterprise Mobility Suite"
+            "EMSPREMIUM"                         = "ENTERPRISE MOBILITY + SECURITY E5"
+            "ENTERPRISEPACK"                     = "Enterprise Plan E3"
+            "ENTERPRISEPACK_B_PILOT"             = "Office 365 (Enterprise Preview)"
+            "ENTERPRISEPACK_FACULTY"             = "Office 365 (Plan A3) for Faculty"
+            "ENTERPRISEPACK_GOV"                 = "Microsoft Office 365 (Plan G3) for Government"
+            "ENTERPRISEPACK_STUDENT"             = "Office 365 (Plan A3) for Students"
+            "ENTERPRISEPACK_USGOV_DOD"           = "Office 365 E3_USGOV_DOD"
+            "ENTERPRISEPACK_USGOV_GCCHIGH"       = "Office 365 E3_USGOV_GCCHIGH"
+            "ENTERPRISEPACKLRG"                  = "Enterprise Plan E3"
+            "ENTERPRISEPREMIUM"                  = "Enterprise E5 (with Audio Conferencing)"
+            "ENTERPRISEPREMIUM_NOPSTNCONF"       = "Enterprise E5 (without Audio Conferencing)"
+            "ENTERPRISEWITHSCAL"                 = "Enterprise Plan E4"
+            "ENTERPRISEWITHSCAL_FACULTY"         = "Office 365 (Plan A4) for Faculty"
+            "ENTERPRISEWITHSCAL_GOV"             = "Microsoft Office 365 (Plan G4) for Government"
+            "ENTERPRISEWITHSCAL_STUDENT"         = "Office 365 (Plan A4) for Students"
+            "EOP_ENTERPRISE_FACULTY"             = "Exchange Online Protection for Faculty"
+            "EQUIVIO_ANALYTICS"                  = "Office 365 Advanced eDiscovery"
+            "ESKLESSWOFFPACK_GOV"                = "Microsoft Office 365 (Plan K2) for Government"
+            "EXCHANGE_L_STANDARD"                = "Exchange Online (Plan 1)"
+            "EXCHANGE_S_ARCHIVE_ADDON_GOV"       = "Exchange Online Archiving"
+            "EXCHANGE_S_DESKLESS"                = "Exchange Online Kiosk"
+            "EXCHANGE_S_DESKLESS_GOV"            = "Exchange Kiosk"
+            "EXCHANGE_S_ENTERPRISE_GOV"          = "Exchange Plan 2G"
+            "EXCHANGE_S_ESSENTIALS"              = "Exchange Online Essentials   "
+            "EXCHANGE_S_STANDARD_MIDMARKET"      = "Exchange Online (Plan 1)"
+            "EXCHANGEARCHIVE"                    = "EXCHANGE ONLINE ARCHIVING FOR EXCHANGE SERVER"
+            "EXCHANGEARCHIVE_ADDON"              = "Exchange Online Archiving For Exchange Online"
+            "EXCHANGEDESKLESS"                   = "Exchange Online Kiosk"
+            "EXCHANGEENTERPRISE"                 = "Exchange Online Plan 2"
+            "EXCHANGEENTERPRISE_GOV"             = "Microsoft Office 365 Exchange Online (Plan 2) only for Government"
+            "EXCHANGEESSENTIALS"                 = "Exchange Online Essentials"
+            "EXCHANGESTANDARD"                   = "Office 365 Exchange Online Only"
+            "EXCHANGESTANDARD_GOV"               = "Microsoft Office 365 Exchange Online (Plan 1) only for Government"
+            "EXCHANGESTANDARD_STUDENT"           = "Exchange Online (Plan 1) for Students"
+            "EXCHANGETELCO"                      = "EXCHANGE ONLINE POP"
+            "FLOW_FREE"                          = "Microsoft Flow Free"
+            "FLOW_P1"                            = "Microsoft Flow Plan 1"
+            "FLOW_P2"                            = "Microsoft Flow Plan 2"
+            "FLOW_PER_USER" = "Power Automate per user plan"
+            "FORMS_PRO" =  "Dynamics 365 Customer Voice Trial"
+            "Forms_Pro_USL" =  "Dynamics 365 Customer Voice USL"
+            "IDENTITY_THREAT_PROTECTION"           = "IDENTITY AND THREAT PROTECTION"
+            "INTUNE_A"                           = "Windows Intune Plan A"
+            "IT_ACADEMY_AD"                      = "MS IMAGINE ACADEMY"
+            "LITEPACK"                           = "Office 365 (Plan P1)"
+            "LITEPACK_P2"                        = "Office 365 Small Business Premium"
+            "M365_F1"                            = "Microsoft 365 F1"
+            "MCOEV"                              = "Microsoft Phone System"
+            "MCOIMP"                             = "SKYPE FOR BUSINESS ONLINE (PLAN 1)"
+            "MCOLITE"                            = "Lync Online (Plan 1)"
+            "MCOMEETACPEA"                       = "Pay Per Minute Audio Conferencing"
+            "MCOMEETADD"                         = "Audio Conferencing"
+            "MCOMEETADV"                         = "PSTN conferencing"
+            "MCOPSTN1"                           = "Domestic Calling Plan (3000 min US / 1200 min EU plans)"
+            "MCOPSTN2"                           = "International Calling Plan"
+            "MCOPSTN5"                           = "Domestic Calling Plan (120 min calling plan)"
+            "MCOPSTN6"                           = "Domestic Calling Plan (240 min calling plan) Note: Limited Availability"
+            "MCOPSTNC"                           = "Communications Credits"
+            "MCOPSTNPP"                          = "Communications Credits"
+            "MCOSTANDARD"                        = "Skype for Business Online Standalone Plan 2"
+            "MCOSTANDARD_GOV"                    = "Lync Plan 2G"
+            "MCOSTANDARD_MIDMARKET"              = "Lync Online (Plan 1)"
+            "MEETING_ROOM" =  "Microsoft Teams Rooms Standard"
+            "MFA_PREMIUM"                        = "Azure Multi-Factor Authentication"
+            "MIDSIZEPACK"                        = "Office 365 Midsize Business"
+            "MS_TEAMS_IW"                        = "Microsoft Teams Trial"
+            "O365_BUSINESS"                      = "Office 365 Business"
+            "O365_BUSINESS_ESSENTIALS"           = "Office 365 Business Essentials"
+            "O365_BUSINESS_PREMIUM"              = "Office 365 Business Premium"
+            "OFFICE_PRO_PLUS_SUBSCRIPTION_SMBIZ" = "Office ProPlus"
+            "OFFICESUBSCRIPTION"                 = "Office ProPlus"
+            "OFFICESUBSCRIPTION_GOV"             = "Office ProPlus"
+            "OFFICESUBSCRIPTION_STUDENT"         = "Office ProPlus Student Benefit"
+            "PBI_PREMIUM_P1_ADDON" =  "Power BI Premium P1"
+            "PLANNERSTANDALONE"                  = "Planner Standalone"
+            "POWER_BI_ADDON"                     = "Office 365 Power BI Addon"
+            "POWER_BI_INDIVIDUAL_USE"            = "Power BI Individual User"
+            "POWER_BI_PRO"                       = "Power BI Pro"
+            "POWER_BI_STANDALONE"                = "Power BI Stand Alone"
+            "POWER_BI_STANDARD"                  = "Power-BI Standard"
+            "POWERAPPS_DEV" =  "Microsoft Power Apps for Developer"
+            "POWERAPPS_INDIVIDUAL_USER" = "POWERAPPS AND LOGIC FLOWS"
+            "POWERAPPS_PER_APP" =  "PowerApps per app baseline access"
+            "POWERAPPS_PER_APP_IW" =  "PowerApps per app baseline access"
+            "POWERAPPS_VIRAL"                    = "Microsoft Power Apps & Flow"
+            "PROJECT_MADEIRA_PREVIEW_IW_SKU"     = "Dynamics 365 for Financials for IWs"
+            "PROJECTCLIENT"                      = "Project Professional"
+            "PROJECTESSENTIALS"                  = "Project Lite"
+            "PROJECTONLINE_PLAN_1"               = "Project Online"
+            "PROJECTONLINE_PLAN_2"               = "Project Online and PRO"
+            "PROJECTPREMIUM"                     = "Project Online Premium"
+            "PROJECTPROFESSIONAL"                = "Project Professional"
+            "PROJECTWORKMANAGEMENT"              = "Office 365 Planner Preview"
+            "RIGHTSMANAGEMENT"                   = "Rights Management"
+            "RIGHTSMANAGEMENT_ADHOC"             = "Windows Azure Rights Management"
+            "RMS_S_ENTERPRISE"                   = "Azure Active Directory Rights Management"
+            "RMS_S_ENTERPRISE_GOV"               = "Windows Azure Active Directory Rights Management"
+            "RMSBASIC"                           = "RMS BASIC"
+            "SHAREPOINTDESKLESS"                 = "SharePoint Online Kiosk"
+            "SHAREPOINTDESKLESS_GOV"             = "SharePoint Online Kiosk"
+            "SHAREPOINTENTERPRISE"               = "Sharepoint Online (Plan 2)"
+            "SHAREPOINTENTERPRISE_GOV"           = "SharePoint Plan 2G"
+            "SHAREPOINTENTERPRISE_MIDMARKET"     = "SharePoint Online (Plan 1)"
+            "SHAREPOINTLITE"                     = "SharePoint Online (Plan 1)"
+            "SHAREPOINTSTANDARD"                 = "Sharepoint Online (Plan 1)"
+            "SHAREPOINTSTORAGE"                  = "SharePoint storage"
+            "SHAREPOINTWAC"                      = "Office Online"
+            "SHAREPOINTWAC_GOV"                  = "Office Online for Government"
+            "SMB_APPS" =  "Business Apps (free)"
+            "SMB_BUSINESS"                       = "Microsoft 365 Apps For Business"
+            "SMB_BUSINESS_ESSENTIALS"            = "Microsoft 365 Business Basic       "
+            "SMB_BUSINESS_PREMIUM"               = "Microsoft 365 Business Standard"
+            "SPB"                                = "Microsoft 365 Business Premium"
+            "SPE_E3"                             = "Microsoft 365 E3"
+            "SPE_E3_USGOV_DOD"                   = "Microsoft 365 E3_USGOV_DOD"
+            "SPE_E3_USGOV_GCCHIGH"               = "Microsoft 365 E3_USGOV_GCCHIGH"
+            "SPE_E5"                             = "Microsoft 365 E5"
+            "SPE_F1"                             = "Office 365 F1"
+            "SPZA_IW"                            = "App Connect"
+            "STANDARD_B_PILOT"                   = "Office 365 (Small Business Preview)"
+            "STANDARDPACK"                       = "Enterprise Plan E1"
+            "STANDARDPACK_FACULTY"               = "Office 365 (Plan A1) for Faculty"
+            "STANDARDPACK_GOV"                   = "Microsoft Office 365 (Plan G1) for Government"
+            "STANDARDPACK_STUDENT"               = "Office 365 (Plan A1) for Students"
+            "STANDARDWOFFPACK"                   = "Office 365 (Plan E2)"
+            "STANDARDWOFFPACK_FACULTY"           = "Office 365 Education E1 for Faculty"
+            "STANDARDWOFFPACK_GOV"               = "Microsoft Office 365 (Plan G2) for Government"
+            "STANDARDWOFFPACK_IW_FACULTY"        = "Office 365 Education for Faculty"
+            "STANDARDWOFFPACK_IW_STUDENT"        = "Office 365 Education for Students"
+            "STANDARDWOFFPACK_STUDENT"           = "Microsoft Office 365 (Plan A2) for Students"
+            "STANDARDWOFFPACKPACK_FACULTY"       = "Office 365 (Plan A2) for Faculty"
+            "STANDARDWOFFPACKPACK_STUDENT"       = "Office 365 (Plan A2) for Students"
+            "STREAM"                             = "MICROSOFT STREAM"
+            "TEAMS_COMMERCIAL_TRIAL"             = "Teams Commercial Trial"
+            "TEAMS_EXPLORATORY"                  = "Teams Exploratory"
+            "VIDEO_INTEROP"                      = "Polycom Skype Meeting Video Interop for Skype for Business"
+            "VISIOCLIENT"                        = "Visio Pro Online"
+            "VISIOONLINE_PLAN1"                  = "Visio Online Plan 1"
+            "WACONEDRIVEENTERPRISE"              = "ONEDRIVE FOR BUSINESS (PLAN 2)"
+            "WACONEDRIVESTANDARD"                = "ONEDRIVE FOR BUSINESS (PLAN 1)"
+            "WIN10_PRO_ENT_SUB"                  = "WINDOWS 10 ENTERPRISE E3"
+            "WIN10_VDA_E5"                       = "Windows 10 Enterprise E5"
+            "WINDOWS_STORE"                      = "Windows Store for Business"
+            "YAMMER_ENTERPRISE"                  = "Yammer for the Starship Enterprise"
+            "YAMMER_MIDSIZE"                     = "Yammer"
+        } ;
+
+
+
+        <# 12:32 PM 3/24/2022 missing entries:
+WARNING: 12:31:24:Unable to resolve 'DYN365_CUSTOMER_INSIGHTS_BASE' to this function's static list of name mappings
+(function may require an update to accomodate this new(?) license)
+WARNING: 12:31:24:Unable to resolve 'POWERAPPS_INDIVIDUAL_USER' to this function's static list of name mappings
+(function may require an update to accomodate this new(?) license)
+WARNING: 12:31:24:Unable to resolve 'FLOW_PER_USER' to this function's static list of name mappings
+(function may require an update to accomodate this new(?) license)
+WARNING: 12:31:24:Unable to resolve 'Forms_Pro_USL' to this function's static list of name mappings
+(function may require an update to accomodate this new(?) license)
+WARNING: 12:31:24:Unable to resolve 'POWERAPPS_PER_APP_IW' to this function's static list of name mappings
+(function may require an update to accomodate this new(?) license)
+WARNING: 12:31:24:Unable to resolve 'DYN365_CUSTOMER_INSIGHTS_ATTACH' to this function's static list of name mappings
+(function may require an update to accomodate this new(?) license)
+WARNING: 12:31:24:Unable to resolve 'PBI_PREMIUM_P1_ADDON' to this function's static list of name mappings
+(function may require an update to accomodate this new(?) license)
+WARNING: 12:31:24:Unable to resolve 'FORMS_PRO' to this function's static list of name mappings
+(function may require an update to accomodate this new(?) license)
+WARNING: 12:31:24:Unable to resolve 'MEETING_ROOM' to this function's static list of name mappings
+(function may require an update to accomodate this new(?) license)
+WARNING: 12:31:24:Unable to resolve 'SMB_APPS' to this function's static list of name mappings
+(function may require an update to accomodate this new(?) license)
+WARNING: 12:31:24:Unable to resolve 'POWERAPPS_PER_APP' to this function's static list of name mappings
+(function may require an update to accomodate this new(?) license)
+WARNING: 12:31:24:Unable to resolve 'DEFENDER_ENDPOINT_P1' to this function's static list of name mappings
+(function may require an update to accomodate this new(?) license)
+WARNING: 12:31:24:Unable to resolve 'POWERAPPS_DEV' to this function's static list of name mappings
+(function may require an update to accomodate this new(?) license)
+#>
+    } ; 
+    PROCESS {
+        $Error.Clear() ;
+        $ttl = ($Name|  measure ).count ;  
+        $procd = 0 ; 
+        foreach ($SkuPartNumber in $Name) {
+            $procd ++ ; 
+            <#$sBnrS="`n#*------v $(${CmdletName}): PROCESSING ($($procd)/$($ttl)): $($SkuPartNumber) v------" ; 
+            $smsg = $sBnrS ; 
+            if($silent){} elseif ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            $smsg = "" ; 
+            if($silent){} elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            #>
+            if($FullName = $Skus[$SkuPartNumber.toupper()]){
+                $smsg = "Resolved '$($Name)' => $($FullName)" ; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                $FullName  | write-output ; 
+            } else { 
+                $smsg = "Unable to resolve '$($Name)' to this function's static list of name mappings (function may require an update to accomodate this new(?) license)" ; 
+                #if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } 
+                #else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            } ; 
+            <#
+            $smsg = $sBnrS.replace('-v','-^').replace('v-','^-')
+            if($silent){} elseif ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            #>
+        } ; # loop-E
+    } 
+    END {
+    
+    } ; 
+}
+
+#*------^ get-MGLicenseFullName.ps1 ^------
+
+
+#*------v get-MGLicensePlanlist.ps1 v------
+function get-MGLicensePlanlist {
+    <#
+    .SYNOPSIS
+    get-MGLicensePlanlist - Resolve Get-AzureADSubscribedSku into an indexed hash of Tenant License detailed specs
+    .NOTES
+    Version     : 1.0.0.1
+    Author      : Todd Kadrie
+    Website     :	http://www.toddomation.com
+    Twitter     :	@tostka / http://twitter.com/tostka
+    CreatedDate : 2020-08-10
+    FileName    : get-MGLicensePlanlist
+    License     : MIT License
+    Copyright   : (c) 2020 Todd Kadrie
+    Github      : https://github.com/tostka/
+    REVISIONS
+    * 12:01 PM 1/6/2026 CMG spliced in scaff
+    * 3:39 PM 1/5/2026 port from vaad\get-AADLicensePlanList -> get-MGLicensePlanList    
+    .DESCRIPTION
+    get-MGLicensePlanlist - Resolve Get-AzureADSubscribedSku into an indexed hash of Tenant License detailed specs
+    .PARAMETER Raw
+    Switch specifies to return the raw get-MGLicensePlanlist properties, indexed on SkuID
+    .PARAMETER IndexOnName
+    Switch specifies to return the raw get-MGLicensePlanlist properties, indexed on Name (for name -> details/skuid lookups; default is indexed on SkuID for sku->details/name lookups)
+     .PARAMETER  Credential
+    Credential to use for this connection [-credential 'account@domain.com']
+    .PARAMETER silent
+    Switch to specify suppression of all but warn/error echos.
+    .PARAMETER ShowDebug
+    Parameter to display Debugging messages [-ShowDebug switch]
+    .PARAMETER Whatif
+    Parameter to run a Test no-change pass [-Whatif switch]
+    .INPUTS
+    None. Does not accepted piped input.
+    .OUTPUTS
+    [| get-member the output to see what .NET obj TypeName is returned, to use here]
+    .EXAMPLE
+    PS>  $pltGLPList=[ordered]@{
+    PS>      TenOrg= $TenOrg;
+    PS>      verbose=$($VerbosePreference -eq "Continue") ;
+    PS>      credential= $pltRXO.credential ;
+    PS>      #(Get-Variable -name cred$($tenorg) ).value ;
+    PS>  } ;
+    PS>  $smsg = "$($tenorg):get-MGLicensePlanlist w`n$(($pltGLPList|out-string).trim())" ;
+    PS>  if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+    PS>  else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+    PS>  $objRet = $null ;
+    PS>  $objRet = get-MGLicensePlanlist @pltGLPList ;
+    PS>  if( ($objRet|Measure-Object).count -AND $objRet.GetType().FullName -match $rgxHashTableTypeName ){
+    PS>      $smsg = "get-MGLicensePlanlist:$($tenorg):returned populated LicensePlanList" ;
+    PS>      if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+    PS>      else{ write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+    PS>      $licensePlanListHash = $objRet ;
+    PS>  } else {
+    PS>      $smsg = "get-MGLicensePlanlist:$($tenorg)FAILED TO RETURN populated [hashtable] LicensePlanList" ;
+    PS>      if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Error } 
+    PS>      else{ write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+    PS>      THROW $SMSG ; 
+    PS>      break ; 
+    PS>  } ;
+    PS>  $MGu = get-azureaduser -obj someuser@domain.com ; 
+    PS>  $userList = $MGu | Select -ExpandProperty AssignedLicenses | Select SkuID  ;
+    PS>  $userLicenses=@() ;
+    PS>  $userList | ForEach {
+    PS>     $sku=$_.SkuId ;
+    PS>     $userLicenses+=$licensePlanListHash[$sku].SkuPartNumber ;
+    PS>  } ;
+    .EXAMPLE
+    PS> PS> $lplist =  get-MGLicensePlanlist ;
+    PS> $lplist['18181a46-0d4e-45cd-891e-60aabd171b4e']
+        SkuId         : 18181a46-0d4e-45cd-891e-60aabd171b4e
+        SkuPartNumber : STANDARDPACK
+        Enabled       : 418
+        Consumed      : 284
+        Available     : 134
+        Warning       : 0
+        Suspended     : 0
+    Demo indexed hash lookup of SkuID (to details) under default behavior (summary output table, and indexed on SKUID)
+    .EXAMPLE
+    PS> $lplist =  get-MGLicensePlanlist -raw ;
+    PS> $lplist['18181a46-0d4e-45cd-891e-60aabd171b4e']
+        ObjectId                                                                  SkuPartNumber PrepaidUnits                                               
+        --------                                                                  ------------- ------------                                               
+        549366ae-e80a-44b9-8adc-52d0c29ba08b_18181a46-0d4e-45cd-891e-60aabd171b4e STANDARDPACK  class LicenseUnitsDetail {...
+    Demo indexed hash lookup of SkuID (to details) under -Raw behavior (raw object output, and indexed on SKUID)
+    .EXAMPLE
+    PS> $lplist =  get-MGLicensePlanlist -verbose -IndexOnName ;
+    PS> $lplist['EXCHANGESTANDARD'] | ft -auto 
+        SkuId                                SkuPartNumber    Enabled Consumed Available Warning Suspended
+        -----                                -------------    ------- -------- --------- ------- ---------
+        4b9405b0-7788-4568-add1-99614e613b69 EXCHANGESTANDARD      58       53         5       0         0
+    Demo use of -IndexOnName, and indexed hash lookup of Name (to details) under Default behavior (summary output table, and indexed on SkuPartNumber)
+    .LINK
+    https://github.com/tostka
+    #>
+    ##ActiveDirectory, MSOnline, 
+    #Requires -Version 3
+    ##requires -PSEdition Desktop
+    ## #Requires -Modules AzureAD, verb-Text # rem'd out
+    ##Requires -RunasAdministrator
+    # VALIDATORS: [ValidateNotNull()][ValidateNotNullOrEmpty()][ValidateLength(24,25)][ValidateLength(5)][ValidatePattern("some\sregex\sexpr")][ValidateSet("USEA","GBMK","AUSYD")][ValidateScript({Test-Path $_ -PathType 'Container'})][ValidateScript({Test-Path $_})][ValidateRange(21,65)][ValidateCount(1,3)]
+    [CmdletBinding()]
+    PARAM(
+        [Parameter(HelpMessage="Switch specifies to return the raw get-MGLicensePlanlist properties, indexed on SkuID")]
+            [switch]$Raw,
+        [Parameter(HelpMessage="Switch specifies to return the raw get-MGLicensePlanlist properties, indexed on Name (for name -> details/skuid lookups; default is indexed on SkuID for sku->details/name lookups)")]
+            [switch]$IndexOnName,
+        [Parameter(HelpMessage="Tenant Tag to be processed[-PARAM 'TEN1']")]
+            [ValidateNotNullOrEmpty()]
+            [string]$TenOrg = $global:o365_TenOrgDefault,
+        [Parameter( HelpMessage = "Use specific Credentials (defaults to Tenant-defined SvcAccount)[-Credentials [credential object]]")]
+            [System.Management.Automation.PSCredential]$Credential,
+        [Parameter(HelpMessage="Silent output (suppress status echos)[-silent]")]
+            [switch] $silent,
+        [Parameter(HelpMessage="Debugging Flag [-showDebug]")]
+        [switch] $showDebug,
+        [Parameter(HelpMessage="Whatif Flag  [-whatIf]")]
+        [switch] $whatIf=$true
+    ) ;
+    BEGIN {
+        #${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name ;
+        # Get parameters this function was invoked with
+        #$PSParameters = New-Object -TypeName PSObject -Property $PSBoundParameters ;
+        $Verbose = ($VerbosePreference -eq 'Continue') ;
+        #$script:PassStatus = $null ;
+        #if(!$GroupSpecifications ){$GroupSpecifications = "ENT-SEC-Guest-TargetUsers;AzureAD Guest User Population","ENT-SEC-Guest-BlockedUsers;AzureAD Guest Blocked Users","ENT-SEC-Guest-AlwaysUsers;AzureAD Guest Force-include Users" ; } ;
+        # more useful summary table output (Better matches the *useful* get-MsolAccountSku output!)
+        $propsMGL = 'SkuId',  'SkuPartNumber',  @{name='Enabled';Expression={$_.PrepaidUnits.enabled }},  
+            @{name='Consumed';Expression={$_.ConsumedUnits} }, @{name='Available';Expression={$_.PrepaidUnits.enabled - $_.ConsumedUnits} }, 
+            @{name='Warning';Expression={$_.PrepaidUnits.warning} }, @{name='Suspended';Expression={$_.PrepaidUnits.suspended} } ;
+        
+        #region cMG_SCAFFOLD ; #*------v cMG_SCAFFOLD v------
+        if(-not (get-command  test-mgconnection)){
+            TRY{
+                ipmo -fo -verb verb-mg -verbose 
+            } CATCH {$ErrTrapd=$Error[0] ;
+                write-host -foregroundcolor gray "TargetCatch:} CATCH [$($ErrTrapd.Exception.GetType().FullName)] {"  ;
+                $smsg = "`n$(($ErrTrapd | fl * -Force|out-string).trim())" ;
+                write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" ;
+                BREAK ; 
+            } ;
+        } ;
+        $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+        $o365Cred = $null ;
+        if($Credential -AND $MGCntxt.isConnected){
+            $smsg = "Explicit -Credential:$($Credential.username) -AND `$MGCntxt.isConnected: running pre:Disconnect-MgGraph" ; 
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            # Dmg returns a get-mgcontext into pipe, if you don't cap it corrupts the pipe on your current flow
+            $dOut = Disconnect-MgGraph -Verbose:($VerbosePreference -eq 'Continue')
+            $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+        };
+        if($Credential){
+            $smsg = "`Credential:Explicit credentials specified, deferring to use..." ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            write-verbose "get-TenantCredentials() return format: (emulating)" ; 
+            $o365Cred = [ordered]@{
+                Cred=$Credential ;
+                credType=$null ;
+            } ;
+            $uRoleReturn = resolve-UserNameToUserRole -UserName $Credential.username -verbose:$($VerbosePreference -eq "Continue") ; # Username
+            write-verbose "w full cred opt: $uRoleReturn = resolve-UserNameToUserRole -Credential $Credential -verbose = $($VerbosePreference -eq 'Continue')"  ; 
+            if($uRoleReturn.UserRole){
+                $o365Cred.credType = $uRoleReturn.UserRole ;
+            } else {
+                $smsg = "Unable to resolve `$credential.username ($($credential.username))"
+                $smsg += "`nto a usable 'UserRole' spec!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } #Error|Warn|Debug
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                throw $smsg ;
+                Break ;
+            } ;
+        } else {
+            if($MGCntxt.isConnected){
+                if($MgCntxt.isUser){
+                    $TenantTag = $TenOrg = get-TenantTag -Credential $MgCntxt.Account ;
+                    $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                    $credential = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue") ;
+                } elseif($MgCntxt.isCBA -AND $MgCntxt.AppName -match 'CBACert-(\w{3})'){
+                        #$MgCntxt.AppName.split('-')[-1]
+                        $TenantTag = $TenOrg = $matches[1]
+                        # also need credential
+                        $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                        write-verbose "ret'd obj:$uRoleReturn = [ordered]@{     UserRole = $null ;     Service = $null ;     TenOrg = $null ; } " ;  
+                        $credRet = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue")
+                        $credential = $credRet.Cred ;
+                }else{
+                    $smsg = "UNABLE TO RESOLVE mgContext to a working TenOrg!" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                }
+            } ; 
+            $pltGTCred=@{TenOrg=$TenOrg ; UserRole=$null; verbose=$($verbose)} ;
+            if($UserRole){
+                $smsg = "(`$UserRole specified:$($UserRole -join ','))" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                $pltGTCred.UserRole = $UserRole;
+            } else {
+                $smsg = "(No `$UserRole found, defaulting to:'CSVC','SID' " ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                $pltGTCred.UserRole = 'CSVC','SID' ;
+            } ;
+            $smsg = "get-TenantCredentials w`n$(($pltGTCred|out-string).trim())" ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level verbose }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            $o365Cred = get-TenantCredentials @pltGTCred
+        } ;
+        if($o365Cred.credType -AND $o365Cred.Cred -AND $o365Cred.Cred.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+            $smsg = "(validated `$o365Cred contains .credType:$($o365Cred.credType) & `$o365Cred.Cred.username:$($o365Cred.Cred.username)" ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            write-verbose "populate $credential with return, if not populated (may be required for follow-on calls that pass common $Credentials through)" ; 
+            if((gv Credential) -AND $Credential -eq $null){
+                $credential = $o365Cred.Cred ;
+            }elseif($credential.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+                $smsg = "(`$Credential is properly populated; explicit -Credential was in initial call)" ; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            } else {
+                $smsg = "`$Credential is `$NULL, AND $o365Cred.Cred is unusable to populate!" ;
+                $smsg = "downstream commands will *not* properly pass through usable credentials!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                throw $smsg ;
+                break ;
+            } ;
+        } else {
+            $smsg = "UNABLE TO RESOLVE FUNCTIONAL CredType/UserRole from specified explicit -Credential:$($Credential.username)!" ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+            else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            break ;
+        } ;         
+        $pltCMG = [ordered]@{
+            Credential = $Credential ;
+            verbose = $($VerbosePreference -eq "Continue")  ;
+        } ;
+        if((get-command Connect-MG).Parameters.keys -contains 'silent'){
+            $pltCMG.add('Silent',$silent) ;
+        } ;
+        #endregion cMG_SCAFFOLD ; #*------^ END cMG_SCAFFOLD ^------
+
+    } ; # BEG-E
+    PROCESS {
+        $Error.Clear() ;
+        #$ObjReturn=@() ; 
+        <#$hshRet=[ordered]@{
+            Cred=$null ; 
+            credType=$null ; 
+        } ; 
+        #>
+        $smsg = "$($TenOrg):Retrieving licensePlanList..." ; 
+        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+        else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+        $licensePlanList = $null ; 
+
+        #Connect-MG @pltRXOC ; 
+        connect-MG @pltCMG 
+
+        $error.clear() ;
+        TRY {
+            if($Raw){
+                $smsg = "(-raw: returning indexed-hash of raw Get-AzureADSubscribedSku properties)" ; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                #$licensePlanList = Get-AzureADSubscribedSku ;
+                $licensePlanList = Get-MgSubscribedSku 
+            } else {
+                $smsg = "(default: returning indexed-hash of summarized Get-AzureADSubscribedSku properties)" ; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                #$licensePlanList = Get-AzureADSubscribedSku | select-object $propsMGL ;
+                $licensePlanList = Get-MgSubscribedSku  | select-object $propsMGL ;
+            } ; 
+        } CATCH {
+            $ErrTrapd=$Error[0] ;
+            Start-Sleep -Seconds $RetrySleep ;
+            $Exit ++ ;
+            $smsg= "Failed to exec cmd because: $($ErrTrapd)" ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Error} ; #Error|Warn
+            $smsg= "Try #: $($Exit)" ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Error} ; #Error|Warn
+            $script:PassStatus += ";ERROR";
+            $smsg= "Unable to exec cmd!" ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Error} ; #Error|Warn
+            Exit ;#Continue/Exit/Stop
+        } ; 
+
+        $smsg = "(converting `$licensePlanList to `$licensePlanListHash indexed hash)..." ; 
+        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+        else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+        # can't use convert-ObjectToIndexedHash as the key/index is a split version of a property, rather than the entire property
+        $swMstr = [Diagnostics.Stopwatch]::StartNew();
+        if($host.version.major -gt 2){$licensePlanListHash = [ordered]@{} } 
+        else { $licensePlanListHash = @{} };
+        if($IndexOnName){
+            $smsg = "(IndexOnName indexing: returning indexed-hash keyed on 'Name' (SkuPartNumber))" ; 
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+        } else { 
+            $smsg = "(default indexing: returning indexed-hash keyed on SkuID)" ; 
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+        } ; 
+        foreach($lic in $licensePlanList) {
+            # update the content with the friendly name
+            $data=[ordered]@{
+                SkuId = $lic.SkuId
+                SkuPartNumber = $lic.SkuPartNumber
+                SkuDesc = get-MGLicenseFullName -name $lic.SkuPartNumber ; 
+                Enabled = $lic.Enabled ; 
+                Consumed = $lic.Consumed ; 
+                Available = $lic.Available ; 
+                Warning = $lic.Warning ; 
+                Suspended = $lic.Suspended ; 
+            } ;
+            if($IndexOnName){
+                if($raw){
+                    $licensePlanListHash[$lic.SkuPartNumber] = $lic ;
+                } else { 
+                    $licensePlanListHash[$lic.SkuPartNumber] = New-Object PSObject -Property $data ;
+                } ; 
+            } else { 
+                if($raw){
+                    $licensePlanListHash[$lic.skuid] = $lic ;    
+                } else { 
+                    $licensePlanListHash[$lic.skuid] = New-Object PSObject -Property $data ;
+                } ;            
+            } ; 
+        } ;
+    
+        $swMstr.Stop() ;
+        $smsg = "($(($licensePlanList|measure).count) records converted in $($swMstr.Elapsed.ToString()))" ; 
+        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+        else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+        # purge the original (reduce mem)
+        $licensePlanList = $null ; 
+        #now can lookup user AssignedLicense.SKUID's eqiv licName as $licensePlanListHash[$skuid].skupartnumber
+
+    } ;  # PROC-E
+    END{
+        $licensePlanListHash | write-output ; 
+    } ;
+}
+
+#*------^ get-MGLicensePlanlist.ps1 ^------
+
+
+#*------v get-MGOPLastSync.ps1 v------
+Function get-MGOPLastSync {
+  <#
+    .SYNOPSIS
+    get-MGOPLastSync - Get-MgOrganization last AD-AAD sync (Microsoft.Graph)
+    .NOTES
+    Version     : 0.0.
+    Author      : Todd Kadrie
+    Website     : http://www.toddomation.com
+    Twitter     : @tostka / http://twitter.com/tostka
+    CreatedDate : 2025-12-29
+    FileName    : get-MGOPLastSync.ps1
+    License     : MIT License
+    Copyright   : (c) 2025 Todd Kadrie
+    Github      : https://github.com/tostka/verb-MG
+    Tags        : Powershell,MicrosoftGraph,Tenant,ADSync,OnPremLastSync
+    AddedCredit : REFERENCE
+    AddedWebsite: URL
+    AddedTwitter: URL    
+    REVISIONS   :
+    * 4:03 PM 12/29/2025 port to Microsoft.Graph, as AAD and Msol are now DEAD 🖕😠 WASTE MY TIME SOME MORE!
+    * 3:50 PM 6/21/2022 as MicrosoftOnline MSOL module is wrecked/deprecated with MFA mandates, retool this to use AAD: (Get-AzureADTenantDetail).CompanyLastDirSyncTime
+    * 4:08 PM 7/24/2020 added full multi-ten cred support
+    * 1:03 PM 5/27/2020 moved alias: get-MsolLastSync win func
+    * 9:51 AM 2/25/2020 condenced output
+    * 8:50 PM 1/12/2020 expanded aliases
+    * 9:17 AM 10/9/2018 get-MGOPLastSync:simplified the collection, and built a Cobj returned in GMT & local timezone
+    * 12:30 PM 11/3/2017 initial version
+    .DESCRIPTION
+    get-MGOPLastSync - Get-MgOrganization last AD-AAD sync (Microsoft.Graph)    
+    .INPUTS
+    None. Does not accepted piped input.
+    .OUTPUTS
+    Returns an object with LastDirSyncTime, expressed as TimeGMT & TimeLocal
+    .EXAMPLE
+    PS> $lastsync = get-mgoplastsync
+    PS> $lastsync ; 
+
+            TimeGMT               TimeLocal            
+            -------               ---------            
+            12/29/2025 9:45:33 PM 12/29/2025 3:45:33 PM
+
+    .LINK
+    https://github.com/tostka/verb-MG
+    #>
+    # #Requires -Modules Microsoft.Graph
+    [CmdletBinding()]
+    #[Alias('get-MsolLastSync')]
+    Param(
+        #[Parameter()]$Credential = $global:credo365TORSID
+        # no supported cred param
+    ) ;
+    $verbose = ($VerbosePreference -eq "Continue") ; 
+    <#
+    try { Get-MsolAccountSku -ErrorAction Stop | out-null }
+    catch [Microsoft.Online.Administration.Automation.MicrosoftOnlineException] {
+      "Not connected to MSOnline. Now connecting to $($credo365.username.split('@')[1])." ;
+      $MFA = get-TenantMFARequirement -Credential $Credential ;
+      if($MFA){ Connect-MsolService }
+      else {Connect-MsolService -Credential $Credential ;}
+    } ;
+    #>
+    Connect-MgGraph -Scopes "Organization.Read.All" -NoWelcome # suppress the banner, or it dumps it into the pipeline!
+    #$LastDirSyncTime = (Get-MsolCompanyInformation).LastDirSyncTime ;
+    #$LastDirSyncTime = (Get-AzureADTenantDetail).CompanyLastDirSyncTime ;
+    $LastDirSyncTime = Get-MgOrganization | select -expand OnPremisesLastSyncDateTime
+    New-Object PSObject -Property @{
+      TimeGMT   = $LastDirSyncTime  ;
+      TimeLocal = $LastDirSyncTime.ToLocalTime() ;
+    } | write-output ;
+}
+
+#*------^ get-MGOPLastSync.ps1 ^------
+
+
+#*------v get-MgUserFull.ps1 v------
+function get-MgUserFull{
+        <#
+        .SYNOPSIS
+        get-MgUserFull.ps1 - Wrapper for get-MGUser that *forces* it to return a full set of user properties, to approx the get-AzureAdUser that they've taken away, wo less f'ing around retrying queries.
+        .NOTES
+        Version     : 0.0.
+        Author      : Todd Kadrie
+        Website     : http://www.toddomation.com
+        Twitter     : @tostka / http://twitter.com/tostka
+        CreatedDate : 2025-
+        FileName    : get-MgUserFull.ps1
+        License     : MIT License
+        Copyright   : (c) 2025 Todd Kadrie
+        Github      : https://github.com/tostka/verb-XXX
+        Tags        : Powershell
+        AddedCredit : REFERENCE
+        AddedWebsite: URL
+        AddedTwitter: URL
+        REVISIONS
+        * 3:29 PM 1/6/2026 fixed mg ipmo ;  reworked $prpMGUser list, added items that are unpop'd propoerties, and pushed useful Additionalproperties from OnPrem, into expansion, updated CBH
+        * 12:18 PM 12/10/2025 init
+        .DESCRIPTION
+        get-MgUserFull.ps1 - Wrapper for get-MGUser that *forces* it to return a full set of user properties, to approx the get-AzureAdUser that they've taken away, wo less f'ing around retrying queries.
+
+        MS has lobotomized get-MgUser as compares to the long-standing functional get-AzureAdUser 
+        and returning the full suite of user properties now requires a bunch of horse hockey to retrieve - in favor of their cheesball, money grubbing 'lean' property set. 
+        fk-em! We're going to force a full property set return, *every time*
+        For fancier filter & top use, use those to return an MGUser with a userid, and then recycle the user ID into this, to retrieve a fully populated user object
+
+        .PARAMETER  UserID
+        Useridentifier (UPN, GUID etc) [-UserID UPN@DOMAIN.COM]
+        .INPUTS
+        None. Does not accepted piped input.(.NET types, can add description)
+        .OUTPUTS
+        Microsoft.Graph.PowerShell.Models.MicrosoftGraphUser
+        System.Boolean
+        [| get-member the output to see what .NET obj TypeName is returned, to use here]
+        .EXAMPLE
+        PS> $mgu = get-MgUserFull -userid UPN@DOMAIN.COM ; 
+        Typical call
+        .LINK
+        https://github.com/tostka/verb-MG
+        #>
+        [CmdletBinding()]
+        PARAM(
+            [Parameter(HelpMessage="Array of Useridentifiers (UPN, GUID etc) [-UserID UPN@DOMAIN.COM]")]
+                [ValidateNotNullOrEmpty()]
+                [string[]]$UserID
+        )
+        BEGIN{
+            # FORCE fully populated key user properties (overrides default return of subset garbage)
+            $prpMGUser = @(
+                # Identity
+                'id','userPrincipalName','mail','mailNickname','proxyAddresses','otherMails','otherMails',
+                # Display/profile
+                'displayName','givenName','surname','jobTitle','department','companyName',
+                'mobilePhone','businessPhones','preferredLanguage',
+                'jobTitle',
+                'department','companyName',
+                'StreetAddress','city','state','PostalCode','country',
+                'officeLocation','UsageLocation',
+                # Account state
+                'accountEnabled','userType',
+                # Licensing
+                'assignedLicenses','assignedPlans',
+                # Hybrid / sync
+                'onPremisesImmutableId','onPremisesDistinguishedName','onPremisesSecurityIdentifier',
+                'OnPremisesUserPrincipalName','onPremisesSamAccountName','onPremisesDomainName',
+                'onPremisesSyncEnabled','OnPremisesLastSyncDateTime','OnPremisesProvisioningErrors','onPremisesExtensionAttributes'
+                # add prev missing sync data props
+                # Misc often used
+                'creationType', 'CreatedDateTime','DeletedDateTime','EmployeeHireDate','EmployeeId','EmployeeType','HireDate',  
+                'Manager',
+                'LicenseAssignmentStates','LicenseDetails','ProvisionedPlans',
+                'MemberOf',
+                # add AdditionalProperties pulls (should move to primary property, also accessible as .additionalproperties['xxx'] property      
+                'mobilePhone','businessPhones',
+                'preferredLanguage'
+            ) | select -unique ; 
+
+            #region cMG_SCAFFOLD ; #*------v cMG_SCAFFOLD v------
+            if(-not (get-command  test-mgconnection)){
+                if(-not (get-module -list Microsoft.Graph -ea 0)){
+                    $smsg = "MISSING Microsoft.Graph!" ; 
+                    $smsg += "`nUse: install-module Microsoft.Graph -scope CurrentUser" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+                } ;             
+            } ;
+            $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+            $o365Cred = $null ;
+            if($Credential -AND $MGCntxt.isConnected){
+                $smsg = "Explicit -Credential:$($Credential.username) -AND `$MGCntxt.isConnected: running pre:Disconnect-MgGraph" ; 
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                # Dmg returns a get-mgcontext into pipe, if you don't cap it corrupts the pipe on your current flow
+                $dOut = Disconnect-MgGraph -Verbose:($VerbosePreference -eq 'Continue')
+                $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+            };
+            if($Credential){
+                $smsg = "`Credential:Explicit credentials specified, deferring to use..." ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                write-verbose "get-TenantCredentials() return format: (emulating)" ; 
+                $o365Cred = [ordered]@{
+                    Cred=$Credential ;
+                    credType=$null ;
+                } ;
+                $uRoleReturn = resolve-UserNameToUserRole -UserName $Credential.username -verbose:$($VerbosePreference -eq "Continue") ; # Username
+                write-verbose "w full cred opt: $uRoleReturn = resolve-UserNameToUserRole -Credential $Credential -verbose = $($VerbosePreference -eq 'Continue')"  ; 
+                if($uRoleReturn.UserRole){
+                    $o365Cred.credType = $uRoleReturn.UserRole ;
+                } else {
+                    $smsg = "Unable to resolve `$credential.username ($($credential.username))"
+                    $smsg += "`nto a usable 'UserRole' spec!" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } #Error|Warn|Debug
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    throw $smsg ;
+                    Break ;
+                } ;
+            } else {
+                if($MGCntxt.isConnected){
+                    if($MgCntxt.isUser){
+                        $TenantTag = $TenOrg = get-TenantTag -Credential $MgCntxt.Account ;
+                        $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                        $credential = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue") ;
+                    } elseif($MgCntxt.isCBA -AND $MgCntxt.AppName -match 'CBACert-(\w{3})'){
+                            #$MgCntxt.AppName.split('-')[-1]
+                            $TenantTag = $TenOrg = $matches[1]
+                            # also need credential
+                            $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                            write-verbose "ret'd obj:$uRoleReturn = [ordered]@{     UserRole = $null ;     Service = $null ;     TenOrg = $null ; } " ;  
+                            $credRet = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue")
+                            $credential = $credRet.Cred ;
+                    }else{
+                        $smsg = "UNABLE TO RESOLVE mgContext to a working TenOrg!" ;
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                        else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    }
+                } ; 
+                $pltGTCred=@{TenOrg=$TenOrg ; UserRole=$null; verbose=$($verbose)} ;
+                if($UserRole){
+                    $smsg = "(`$UserRole specified:$($UserRole -join ','))" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                    else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    $pltGTCred.UserRole = $UserRole;
+                } else {
+                    $smsg = "(No `$UserRole found, defaulting to:'CSVC','SID' " ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                    else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    $pltGTCred.UserRole = 'CSVC','SID' ;
+                } ;
+                $smsg = "get-TenantCredentials w`n$(($pltGTCred|out-string).trim())" ;
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level verbose }
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+                $o365Cred = get-TenantCredentials @pltGTCred
+            } ;
+            if($o365Cred.credType -AND $o365Cred.Cred -AND $o365Cred.Cred.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+                $smsg = "(validated `$o365Cred contains .credType:$($o365Cred.credType) & `$o365Cred.Cred.username:$($o365Cred.Cred.username)" ;
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+                write-verbose "populate $credential with return, if not populated (may be required for follow-on calls that pass common $Credentials through)" ; 
+                if((gv Credential) -AND $Credential -eq $null){
+                    $credential = $o365Cred.Cred ;
+                }elseif($credential.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+                    $smsg = "(`$Credential is properly populated; explicit -Credential was in initial call)" ; 
+                    if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                } else {
+                    $smsg = "`$Credential is `$NULL, AND $o365Cred.Cred is unusable to populate!" ;
+                    $smsg = "downstream commands will *not* properly pass through usable credentials!" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    throw $smsg ;
+                    break ;
+                } ;
+            } else {
+                $smsg = "UNABLE TO RESOLVE FUNCTIONAL CredType/UserRole from specified explicit -Credential:$($Credential.username)!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                break ;
+            } ;         
+            $pltCMG = [ordered]@{
+                Credential = $Credential ;
+                verbose = $($VerbosePreference -eq "Continue")  ;
+            } ;
+            if((get-command Connect-MG).Parameters.keys -contains 'silent'){
+                $pltCMG.add('Silent',$silent) ;
+            } ;
+            #endregion cMG_SCAFFOLD ; #*------^ END cMG_SCAFFOLD ^------
+
+            if(-not (get-command Get-MgUser)){
+                $smsg = "Missing Get-MgUser!" ; 
+                $smsg += "`nPre-connect to Microsoft.Graph via:" ;
+                $smsg += "`nConnect-MgGraph -Scopes 'User.Read.All', 'Directory.Read.All', 'Group.Read.All'" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+                BREAK ; 
+            } ; 
+            #region IS_PIPELINE ; #*------v IS_PIPELINE v------
+            # check if using Pipeline input or explicit params:
+            if ($PSCmdlet.MyInvocation.ExpectingInput) {
+                $smsg = "Data received from pipeline input: '$($InputObject)'" ;
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            } else {
+                # doesn't actually return an obj in the echo
+                #$smsg = "Data received from parameter input: '$($InputObject)'" ;
+                #if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                #else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            } ;
+            #endregion IS_PIPELINE ; #*------^ END IS_PIPELINE ^------
+        } 
+        PROCESS{
+            foreach($id in $userid){
+                TRY{
+                    connect-MG @pltCMG 
+                    $smsg = "Get-MgUser -UserId $($id)" ; 
+                    if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                    $MGUser = Get-MgUser -UserId $id -Property $prpMGUser -erroraction STOP ; 
+                } CATCH {$ErrTrapd=$Error[0] ;
+                    write-host -foregroundcolor gray "TargetCatch:} CATCH [$($ErrTrapd.Exception.GetType().FullName)] {"  ;
+                    $smsg = "`n$(($ErrTrapd | fl * -Force|out-string).trim())" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+                    CONTINUE
+                 } ;            
+                if($MGUser){
+                    $MGUser | write-output ; 
+                } else{
+                    $smsg = "UNABLE TO: Get-MgUser -UserId $($userid)" ; 
+                    if(gcm Write-MyWarning -ea 0){Write-MyWarning $smsg } else {
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN} else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    } ;
+                }; 
+            } # loop-E
+        } ;  # PROC-E
+    }
+
+#*------^ get-MgUserFull.ps1 ^------
+
+
+#*------v get-MgUserLicenseDetailTDO.ps1 v------
+Function get-MgUserLicenseDetailTDO {
+    <#
+    .SYNOPSIS
+    get-MgUserLicenseDetailTDO - Summarize an MgUser's assigned o365 license (Microsoft.Graph), returns LicAccountSkuID,DisplayName,UserPrincipalName,LicenseFriendlyName
+    .NOTES
+    Version     : 1.0.0
+    Author      : Todd Kadrie
+    Website     :	http://www.toddomation.com
+    Twitter     :	@tostka / http://twitter.com/tostka
+    CreatedDate : 2025-12-31
+    FileName    : 
+    License     : MIT License
+    Copyright   : (c) 2025 Todd Kadrie
+    Github      : https://github.com/tostka/verb-MG
+    Tags        : Powershell
+    AddedCredit : Brad Wyatt
+    AddedWebsite:	https://thelazyadministrator.com/2018/03/19/get-friendly-license-name-for-all-users-in-office-365-using-powershell/
+    AddedTwitter:	URL
+    REVISIONS   :
+    * 3:26 PM 1/6/2026 removed mg ipmo ; spliced over latest Connect-mgGraph -scope scaff; functional, updated cmg scaffold, needs to be replic to all other calling scripts
+    * * 12:13 PM 12/31/2025 inevitble WOT port to M$'s latest garbage module mandate with incompatible cmdlet names, parameters, etc: Microsoft.Graph,from verb-AAD -> verb-MG
+    * 10:44 AM 9/19/2024 added: Microsoft_Teams_Audio_Conferencing_select_dial_out = Microsoft Teams Audio Conferencing with dial-out to USA/CAN 
+        added CBH example typical output
+    * 1:54 PM 6/26/2023 needs TenOrg resolved from cred...
+    * 3:52 PM 5/23/2023 implemented @rxo @rxoc split, (silence all connectivity, non-silent feedback of functions); flipped all r|cxo to @pltrxoC, and left all function calls as @pltrxo; 
+    * 8:30 AM 5/22/2023 add: 7pswl support; fixed to IndexOnName =$false ; ; removed ValueFromPipelineByPropertyName ; 
+    * 10:13 AM 5/19/2023 err suppress: test for lic assignment before trying to indexed-hash lookup; add echo on no-license status ; 
+    * 4:43 PM 5/17/2023 rounded out params for $pltRXO passthru 
+    * 8:15 AM 12/21/2022 updated CBH; sub'd out showdebug for w-v
+    * 2:02 PM 3/23/2022 convert verb-aad:get-MsolUserLicensedetails -> get-MgUserLicenseDetailTDO (Msonline -> AzureAD module rewrite)
+    .DESCRIPTION
+    get-MgUserLicenseDetailTDO - Summarize an MgUser's assigned o365 license (Microsoft.Graph), returns LicAccountSkuID,DisplayName,UserPrincipalName,LicenseFriendlyName
+
+    Evolved from get-MsolUserLicenseDetails (w deprecation of MSOL mod by M$). Distinct from test-EXOIsLicensed (which specifically queries for Exchange service grants nested in lics assigned to an AADUser)
+    Originally inspired by the MSOnline/MSOL-based core lic hash & lookup code in Brad's "Get Friendly License Name for all Users in Office 365 Using PowerShell" script. 
+    Since completely rewritten for AzureAD^H^H^HMicrosoft.Graph module, expanded output details. 
+
+    .PARAMETER UPNs
+    Array of Userprincipalnames to be looked up
+    .PARAMETER Credential
+    Credential to be used for connection
+    .PARAMETER silent
+    Switch to specify suppression of all but warn/error echos.(unimplemented, here for cross-compat)
+    .PARAMETER ShowDebug
+    Debugging Flag (use -verbose; retained solely for legacy compat)[-showDebug]
+
+    .INPUTS
+    None. Does not accepted piped input.
+    .OUTPUTS
+    Returns objects summarizing each of the EntraIDUser's licenses (User DisplayName, UserPrincipalName, LicAccountSkuID, LicenseFriendlyName)
+    .EXAMPLE
+    PS> get-MgUserLicenseDetailTDO -UPNs fname.lname@domain.com ;
+    Retrieve MgUser License details on specified UPN
+    .EXAMPLE
+    PS> $MGULicDetails = get-MgUserLicenseDetailTDO -UPNs $exombx.userprincipalname
+
+    PS> $MGUserlicdetails 
+
+        LicAccountSkuID                                    DisplayName UserPrincipalName    LicenseFriendlyName                                        
+        ---------------                                    ----------- -----------------    -------------------                                        
+        SPE_E3                                             FNAM LNAMEX FNAM.LNAMEX @DOMA.TLD Microsoft 365 E3                                           
+        MCOEV                                              FNAM LNAMEX FNAM.LNAMEX @DOMA.TLD Microsoft Phone System                                     
+        POWER_BI_STANDARD                                  FNAM LNAMEX FNAM.LNAMEX @DOMA.TLD Power-BI Standard                                          
+        FLOW_FREE                                          FNAM LNAMEX FNAM.LNAMEX @DOMA.TLD Microsoft Flow Free                                        
+        MCOPSTNC                                           FNAM LNAMEX FNAM.LNAMEX @DOMA.TLD Communications Credits                                     
+        VISIOCLIENT                                        FNAM LNAMEX FNAM.LNAMEX @DOMA.TLD Visio Pro Online                                           
+        Microsoft_Teams_Audio_Conferencing_select_dial_out FNAM LNAMEX FNAM.LNAMEX @DOMA.TLD Microsoft Teams Audio Conferencing with dial-out to USA/CAN
+
+    Retrieve MgUser License details on specified UPN
+    .LINK
+    https://github.com/tostka/verb-MG
+    https://thelazyadministrator.com/2018/03/19/get-friendly-license-name-for-all-users-in-office-365-using-powershell/
+    #>
+    Param(
+        [Parameter(Position = 0, Mandatory = $False, ValueFromPipeline = $true, HelpMessage = "An array of MgUser objects")][ValidateNotNullOrEmpty()]
+            [alias('Userprincipalname')]
+            [string]$UPNs,
+        #[Parameter(Mandatory = $false, HelpMessage = "Use specific Credentials (defaults to Tenant-defined SvcAccount)[-Credentials [credential object]]")]
+        #    [System.Management.Automation.PSCredential]$Credential = $global:credo365TORSID,
+        # above unsupported in connect-mgraph
+        [Parameter(HelpMessage="Silent output (suppress status echos)[-silent]")]
+            [switch] $silent,
+        [Parameter(HelpMessage = "Debugging Flag (use -verbose; retained solely for legacy compat)[-showDebug]")]
+            [switch] $showDebug
+    ) ;
+    BEGIN{
+        ${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name ;
+        $Verbose = ($VerbosePreference -eq 'Continue') ;
+    
+        if(-not $DoRetries){$DoRetries = 4 } ;    # # times to repeat retry attempts
+        if(-not $RetrySleep){$RetrySleep = 10 } ; # wait time between retries
+
+        #region cMG_SCAFFOLD ; #*------v cMG_SCAFFOLD v------
+        if(-not (get-command  test-mgconnection)){
+            if(-not (get-module -list Microsoft.Graph -ea 0)){
+                $smsg = "MISSING Microsoft.Graph!" ; 
+                $smsg += "`nUse: install-module Microsoft.Graph -scope CurrentUser" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+            } ;             
+        } ;
+        $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+        $o365Cred = $null ;
+        if($Credential -AND $MGCntxt.isConnected){
+            $smsg = "Explicit -Credential:$($Credential.username) -AND `$MGCntxt.isConnected: running pre:Disconnect-MgGraph" ; 
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            # Dmg returns a get-mgcontext into pipe, if you don't cap it corrupts the pipe on your current flow
+            $dOut = Disconnect-MgGraph -Verbose:($VerbosePreference -eq 'Continue')
+            $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+        };
+        if($Credential){
+            $smsg = "`Credential:Explicit credentials specified, deferring to use..." ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            write-verbose "get-TenantCredentials() return format: (emulating)" ; 
+            $o365Cred = [ordered]@{
+                Cred=$Credential ;
+                credType=$null ;
+            } ;
+            $uRoleReturn = resolve-UserNameToUserRole -UserName $Credential.username -verbose:$($VerbosePreference -eq "Continue") ; # Username
+            write-verbose "w full cred opt: $uRoleReturn = resolve-UserNameToUserRole -Credential $Credential -verbose = $($VerbosePreference -eq 'Continue')"  ; 
+            if($uRoleReturn.UserRole){
+                $o365Cred.credType = $uRoleReturn.UserRole ;
+            } else {
+                $smsg = "Unable to resolve `$credential.username ($($credential.username))"
+                $smsg += "`nto a usable 'UserRole' spec!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } #Error|Warn|Debug
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                throw $smsg ;
+                Break ;
+            } ;
+        } else {
+            if($MGCntxt.isConnected){
+                if($MgCntxt.isUser){
+                    $TenantTag = $TenOrg = get-TenantTag -Credential $MgCntxt.Account ;
+                    $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                    $credential = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue") ;
+                } elseif($MgCntxt.isCBA -AND $MgCntxt.AppName -match 'CBACert-(\w{3})'){
+                        #$MgCntxt.AppName.split('-')[-1]
+                        $TenantTag = $TenOrg = $matches[1]
+                        # also need credential
+                        $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                        write-verbose "ret'd obj:$uRoleReturn = [ordered]@{     UserRole = $null ;     Service = $null ;     TenOrg = $null ; } " ;  
+                        $credRet = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue")
+                        $credential = $credRet.Cred ;
+                }else{
+                    $smsg = "UNABLE TO RESOLVE mgContext to a working TenOrg!" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                }
+            } ; 
+            $pltGTCred=@{TenOrg=$TenOrg ; UserRole=$null; verbose=$($verbose)} ;
+            if($UserRole){
+                $smsg = "(`$UserRole specified:$($UserRole -join ','))" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                $pltGTCred.UserRole = $UserRole;
+            } else {
+                $smsg = "(No `$UserRole found, defaulting to:'CSVC','SID' " ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                $pltGTCred.UserRole = 'CSVC','SID' ;
+            } ;
+            $smsg = "get-TenantCredentials w`n$(($pltGTCred|out-string).trim())" ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level verbose }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            $o365Cred = get-TenantCredentials @pltGTCred
+        } ;
+        if($o365Cred.credType -AND $o365Cred.Cred -AND $o365Cred.Cred.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+            $smsg = "(validated `$o365Cred contains .credType:$($o365Cred.credType) & `$o365Cred.Cred.username:$($o365Cred.Cred.username)" ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            write-verbose "populate $credential with return, if not populated (may be required for follow-on calls that pass common $Credentials through)" ; 
+            if((gv Credential) -AND $Credential -eq $null){
+                $credential = $o365Cred.Cred ;
+            }elseif($credential.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+                $smsg = "(`$Credential is properly populated; explicit -Credential was in initial call)" ; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            } else {
+                $smsg = "`$Credential is `$NULL, AND $o365Cred.Cred is unusable to populate!" ;
+                $smsg = "downstream commands will *not* properly pass through usable credentials!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                throw $smsg ;
+                break ;
+            } ;
+        } else {
+            $smsg = "UNABLE TO RESOLVE FUNCTIONAL CredType/UserRole from specified explicit -Credential:$($Credential.username)!" ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+            else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            break ;
+        } ;         
+        $pltCMG = [ordered]@{
+            Credential = $Credential ;
+            verbose = $($VerbosePreference -eq "Continue")  ;
+        } ;
+        if((get-command Connect-MG).Parameters.keys -contains 'silent'){
+            $pltCMG.add('Silent',$silent) ;
+        } ;
+        #endregion cMG_SCAFFOLD ; #*------^ END cMG_SCAFFOLD ^------
+    } #  # BEG-E        
+    PROCESS{
+        connect-MG @pltCMG 
+    
+
+        # [Product names and service plan identifiers for licensing in Azure Active Directory | Microsoft Docs](https://docs.microsoft.com/en-us/azure/active-directory/users-groups-roles/licensing-service-plan-reference)
+        # 9:47 AM 9/19/2024 added: Microsoft_Teams_Audio_Conferencing_select_dial_out = Microsoft Teams Audio Conferencing with dial-out to USA/CAN 
+        <# whatis an F1 lic: Office 365 F1 is designed to enable Firstline Workers to do their best work.
+        Office 365 F1 provides easy-to-use tools and services to help these workers
+        easily create, update, and manage schedules and tasks, communicate and work
+        together, train and onboard, and quickly receive company news and announcements.
+        #>
+
+        # updating sort via text: gc c:\tmp\list.txt | sort ;
+        $Sku = @{
+            "AAD_BASIC"                          = "Azure Active Directory Basic"
+            "AAD_PREMIUM"                        = "Azure Active Directory Premium"
+            "ATA"                                = "Advanced Threat Analytics"
+            "ATP_ENTERPRISE"                     = "Exchange Online Advanced Threat Protection"
+            "BI_AZURE_P1"                        = "Power BI Reporting and Analytics"
+            "CRMIUR"                             = "CMRIUR"
+            "CRMSTANDARD"                        = "Microsoft Dynamics CRM Online Professional"
+            "DESKLESSPACK"                       = "Office 365 (Plan K1)"
+            "DESKLESSPACK_GOV"                   = "Microsoft Office 365 (Plan K1) for Government"
+            "DESKLESSWOFFPACK"                   = "Office 365 (Plan K2)"
+            "DYN365_ENTERPRISE_P1_IW"            = "Dynamics 365 P1 Trial for Information Workers"
+            "DYN365_ENTERPRISE_PLAN1"            = "Dynamics 365 Customer Engagement Plan Enterprise Edition"
+            "DYN365_ENTERPRISE_SALES"            = "Dynamics Office 365 Enterprise Sales"
+            "DYN365_ENTERPRISE_TEAM_MEMBERS"     = "Dynamics 365 For Team Members Enterprise Edition"
+            "DYN365_FINANCIALS_BUSINESS_SKU"     = "Dynamics 365 for Financials Business Edition"
+            "DYN365_FINANCIALS_TEAM_MEMBERS_SKU" = "Dynamics 365 for Team Members Business Edition"
+            "ECAL_SERVICES"                      = "ECAL"
+            "EMS"                                = "Enterprise Mobility Suite"
+            "ENTERPRISEPACK"                     = "Enterprise Plan E3"
+            "ENTERPRISEPACK_B_PILOT"             = "Office 365 (Enterprise Preview)"
+            "ENTERPRISEPACK_FACULTY"             = "Office 365 (Plan A3) for Faculty"
+            "ENTERPRISEPACK_GOV"                 = "Microsoft Office 365 (Plan G3) for Government"
+            "ENTERPRISEPACK_STUDENT"             = "Office 365 (Plan A3) for Students"
+            "ENTERPRISEPACKLRG"                  = "Enterprise Plan E3"
+            "ENTERPRISEPREMIUM"                  = "Enterprise E5 (with Audio Conferencing)"
+            "ENTERPRISEPREMIUM_NOPSTNCONF"       = "Enterprise E5 (without Audio Conferencing)"
+            "ENTERPRISEWITHSCAL"                 = "Enterprise Plan E4"
+            "ENTERPRISEWITHSCAL_FACULTY"         = "Office 365 (Plan A4) for Faculty"
+            "ENTERPRISEWITHSCAL_GOV"             = "Microsoft Office 365 (Plan G4) for Government"
+            "ENTERPRISEWITHSCAL_STUDENT"         = "Office 365 (Plan A4) for Students"
+            "EOP_ENTERPRISE_FACULTY"             = "Exchange Online Protection for Faculty"
+            "EQUIVIO_ANALYTICS"                  = "Office 365 Advanced eDiscovery"
+            "ESKLESSWOFFPACK_GOV"                = "Microsoft Office 365 (Plan K2) for Government"
+            "EXCHANGE_L_STANDARD"                = "Exchange Online (Plan 1)"
+            "EXCHANGE_S_ARCHIVE_ADDON_GOV"       = "Exchange Online Archiving"
+            "EXCHANGE_S_DESKLESS"                = "Exchange Online Kiosk"
+            "EXCHANGE_S_DESKLESS_GOV"            = "Exchange Kiosk"
+            "EXCHANGE_S_ENTERPRISE_GOV"          = "Exchange Plan 2G"
+            "EXCHANGE_S_ESSENTIALS"              = "Exchange Online Essentials   "
+            "EXCHANGE_S_STANDARD_MIDMARKET"      = "Exchange Online (Plan 1)"
+            "EXCHANGEARCHIVE_ADDON"              = "Exchange Online Archiving For Exchange Online"
+            "EXCHANGEDESKLESS"                   = "Exchange Online Kiosk"
+            "EXCHANGEENTERPRISE"                 = "Exchange Online Plan 2"
+            "EXCHANGEENTERPRISE_GOV"             = "Microsoft Office 365 Exchange Online (Plan 2) only for Government"
+            "EXCHANGEESSENTIALS"                 = "Exchange Online Essentials"
+            "EXCHANGESTANDARD"                   = "Office 365 Exchange Online Only"
+            "EXCHANGESTANDARD_GOV"               = "Microsoft Office 365 Exchange Online (Plan 1) only for Government"
+            "EXCHANGESTANDARD_STUDENT"           = "Exchange Online (Plan 1) for Students"
+            "FLOW_FREE"                          = "Microsoft Flow Free"
+            "FLOW_P1"                            = "Microsoft Flow Plan 1"
+            "FLOW_P2"                            = "Microsoft Flow Plan 2"
+            "INTUNE_A"                           = "Windows Intune Plan A"
+            "LITEPACK"                           = "Office 365 (Plan P1)"
+            "LITEPACK_P2"                        = "Office 365 Small Business Premium"
+            "M365_F1"                            = "Microsoft 365 F1"
+            "MCOEV"                              = "Microsoft Phone System"
+            "MCOLITE"                            = "Lync Online (Plan 1)"
+            "MCOMEETACPEA"                       = "Pay Per Minute Audio Conferencing"
+            "MCOMEETADD"                         = "Audio Conferencing"
+            "MCOMEETADV"                         = "PSTN conferencing"
+            "MCOPSTN1"                           = "Domestic Calling Plan (3000 min US / 1200 min EU plans)"
+            "MCOPSTN2"                           = "International Calling Plan"
+            "MCOPSTN5"                           = "Domestic Calling Plan (120 min calling plan)"
+            "MCOPSTN6"                           = "Domestic Calling Plan (240 min calling plan) Note: Limited Availability"
+            "MCOPSTNC"                           = "Communications Credits"
+            "MCOPSTNPP"                          = "Communications Credits"
+            "MCOSTANDARD"                        = "Skype for Business Online Standalone Plan 2"
+            "MCOSTANDARD_GOV"                    = "Lync Plan 2G"
+            "MCOSTANDARD_MIDMARKET"              = "Lync Online (Plan 1)"
+            "Microsoft_Teams_Audio_Conferencing_select_dial_out" = "Microsoft Teams Audio Conferencing with dial-out to USA/CAN"
+            "MFA_PREMIUM"                        = "Azure Multi-Factor Authentication"
+            "MIDSIZEPACK"                        = "Office 365 Midsize Business"
+            "MS_TEAMS_IW"                        = "Microsoft Teams Trial"
+            "O365_BUSINESS"                      = "Office 365 Business"
+            "O365_BUSINESS_ESSENTIALS"           = "Office 365 Business Essentials"
+            "O365_BUSINESS_PREMIUM"              = "Office 365 Business Premium"
+            "OFFICE_PRO_PLUS_SUBSCRIPTION_SMBIZ" = "Office ProPlus"
+            "OFFICESUBSCRIPTION"                 = "Office ProPlus"
+            "OFFICESUBSCRIPTION_GOV"             = "Office ProPlus"
+            "OFFICESUBSCRIPTION_STUDENT"         = "Office ProPlus Student Benefit"
+            "PLANNERSTANDALONE"                  = "Planner Standalone"
+            "POWER_BI_ADDON"                     = "Office 365 Power BI Addon"
+            "POWER_BI_INDIVIDUAL_USE"            = "Power BI Individual User"
+            "POWER_BI_PRO"                       = "Power BI Pro"
+            "POWER_BI_STANDALONE"                = "Power BI Stand Alone"
+            "POWER_BI_STANDARD"                  = "Power-BI Standard"
+            "PROJECT_MADEIRA_PREVIEW_IW_SKU"     = "Dynamics 365 for Financials for IWs"
+            "PROJECTCLIENT"                      = "Project Professional"
+            "PROJECTESSENTIALS"                  = "Project Lite"
+            "PROJECTONLINE_PLAN_1"               = "Project Online"
+            "PROJECTONLINE_PLAN_2"               = "Project Online and PRO"
+            "ProjectPremium"                     = "Project Online Premium"
+            "PROJECTPROFESSIONAL"                = "Project Professional"
+            "PROJECTWORKMANAGEMENT"              = "Office 365 Planner Preview"
+            "RIGHTSMANAGEMENT"                   = "Rights Management"
+            "RIGHTSMANAGEMENT_ADHOC"             = "Windows Azure Rights Management"
+            "RMS_S_ENTERPRISE"                   = "Azure Active Directory Rights Management"
+            "RMS_S_ENTERPRISE_GOV"               = "Windows Azure Active Directory Rights Management"
+            "SHAREPOINTDESKLESS"                 = "SharePoint Online Kiosk"
+            "SHAREPOINTDESKLESS_GOV"             = "SharePoint Online Kiosk"
+            "SHAREPOINTENTERPRISE"               = "Sharepoint Online (Plan 2)"
+            "SHAREPOINTENTERPRISE_GOV"           = "SharePoint Plan 2G"
+            "SHAREPOINTENTERPRISE_MIDMARKET"     = "SharePoint Online (Plan 1)"
+            "SHAREPOINTLITE"                     = "SharePoint Online (Plan 1)"
+            "SHAREPOINTSTANDARD"                 = "Sharepoint Online (Plan 1)"
+            "SHAREPOINTSTORAGE"                  = "SharePoint storage"
+            "SHAREPOINTWAC"                      = "Office Online"
+            "SHAREPOINTWAC_GOV"                  = "Office Online for Government"
+            "SMB_BUSINESS"                       = "Microsoft 365 Apps For Business"
+            "SMB_BUSINESS_ESSENTIALS"            = "Microsoft 365 Business Basic       "
+            "SMB_BUSINESS_PREMIUM"               = "Microsoft 365 Business Standard"
+            "SPB"                                = "Microsoft 365 Business Premium"
+            "SPE_E3"                             = "Microsoft 365 E3"
+            "SPE_E5"                             = "Microsoft 365 E5"
+            "SPE_F1"                             = "Office 365 F1"
+            "SPZA_IW"                            = "App Connect"
+            "STANDARD_B_PILOT"                   = "Office 365 (Small Business Preview)"
+            "STANDARDPACK"                       = "Enterprise Plan E1"
+            "STANDARDPACK_FACULTY"               = "Office 365 (Plan A1) for Faculty"
+            "STANDARDPACK_GOV"                   = "Microsoft Office 365 (Plan G1) for Government"
+            "STANDARDPACK_STUDENT"               = "Office 365 (Plan A1) for Students"
+            "STANDARDWOFFPACK"                   = "Office 365 (Plan E2)"
+            "STANDARDWOFFPACK_FACULTY"           = "Office 365 Education E1 for Faculty"
+            "STANDARDWOFFPACK_GOV"               = "Microsoft Office 365 (Plan G2) for Government"
+            "STANDARDWOFFPACK_IW_FACULTY"        = "Office 365 Education for Faculty"
+            "STANDARDWOFFPACK_IW_STUDENT"        = "Office 365 Education for Students"
+            "STANDARDWOFFPACK_STUDENT"           = "Microsoft Office 365 (Plan A2) for Students"
+            "STANDARDWOFFPACKPACK_FACULTY"       = "Office 365 (Plan A2) for Faculty"
+            "STANDARDWOFFPACKPACK_STUDENT"       = "Office 365 (Plan A2) for Students"
+            "TEAMS_COMMERCIAL_TRIAL"             = "Teams Commercial Trial"
+            "TEAMS_EXPLORATORY"                  = "Teams Exploratory"
+            "VIDEO_INTEROP"                      = "Polycom Skype Meeting Video Interop for Skype for Business"
+            "VISIOCLIENT"                        = "Visio Pro Online"
+            "VISIOONLINE_PLAN1"                  = "Visio Online Plan 1"
+            "WINDOWS_STORE"                      = "Windows Store for Business"
+            "YAMMER_ENTERPRISE"                  = "Yammer for the Starship Enterprise"
+            "YAMMER_MIDSIZE"                     = "Yammer"
+        }
+
+        # $MGUser
+        Foreach ($User in $UPNs) {
+            $smsg = "$((get-date).ToString('HH:mm:ss')):Getting all licenses for $($User)..."  ;  ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            $Exit = 0 ;
+            Do {
+                Try {
+
+                    $pltGLPList = [ordered]@{ 
+                        TenOrg = $TenOrg; 
+                        #IndexOnName =$true ;
+                        IndexOnName =$false ;
+                        verbose = $($VerbosePreference -eq "Continue") ; 
+                        credential = $Credential ;
+                        silent = $false ; 
+                        erroraction = 'STOP' ;
+                    } ;
+                    $smsg = "get-MGlicensePlanList w`n$(($pltGLPList|out-string).trim())" ; 
+                    if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                    #$skus = get-MGlicensePlanList @pltGLPList ;
+                    $skus = get-MGlicensePlanList @pltGLPList ;
+                
+                    #$MsolU = Get-MsolUser -UserPrincipalName $User ;
+
+                    $pltGMGU=[ordered]@{
+                        #ObjectID = $user ; get-AzureAdUser param, fkrs ren'd the param, just cuz.
+                        UserID = $user ; #mg equiv param
+                        ErrorAction = 'STOP' ;
+                        verbose = $($VerbosePreference -eq "Continue") ;
+                    } ; 
+                    $smsg = "Get-MgUser w`n$(($pltGMGU|out-string).trim())" ; 
+                    if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;                      
+                    #$MGUser = Get-MgUser @pltGMGU ; 
+                    # force fulluser return vmg\
+                    $MGUser = Get-MgUserFull @pltGMGU
+
+
+                    #$Licenses = $MsolU.Licenses.AccountSkuID
+                    # resolve sku to name (SkuPartNumber)
+                    $Licenses = $MGUser.AssignedLicenses.skuid ; 
+                    # come back as lic guids, not TENANT:guid
+                    # have to be converted to suit
+                    if($Licenses){
+                        $Licenses = $Licenses |foreach-object{$skus[$_].SkuPartNumber ; } ; 
+                    } else { 
+                        $smsg = "MGU:$($MGUser.userprincipalname) *has no* .AssignedLicenses.skuid's: No assigned licenses" ; 
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                        else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                        #Levels:Error|Warn|Info|H1|H2|H3|H4|H5|Debug|Verbose|Prompt|Success
+                    } ; 
+                    $Exit = $DoRetries ;
+                } Catch {
+                    Start-Sleep -Seconds $RetrySleep ;
+                    $Exit ++ ;
+                    $smsg = "Failed to exec cmd because: $($Error[0])" ;
+                    $smsg += "`nWWTry #: $Exit" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+
+                    If ($Exit -eq $DoRetries) {
+                        $smsg = "Unable to exec cmd!" ;
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+                        else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+                    } ;
+                }  ;
+            } Until ($Exit -eq $DoRetries) ;
+
+            $AggregLics = @() ;
+        
+            if(($Licenses|measure-object).count -eq 0){
+                $smsg = "$($MGUser.userprincipalname).AssignedLicenses.skuid is *empty*: User UN-Licensed" ; 
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                #Levels:Error|Warn|Info|H1|H2|H3|H4|H5|Debug|Verbose|Prompt|Success
+            } ; 
+            Foreach ($License in $Licenses) {
+                $smsg = "Finding $License in the Hash Table..." ; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                #$LicenseItem = $License -split ":" | Select-Object -Last 1
+                #$TextLic = $Sku.Item("$LicenseItem")
+                $TextLic = $sku[$License] ; 
+                If (!($TextLic)) {
+                    $smsg = "Error: The Hash Table has no match for $($License) for $($MGUser.DisplayName)!"
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Error }
+                    else { write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    #$LicenseFallBackName = "$License.AccountSkuId:(($lplist.values | ?{$_.SkuPartNumber -eq 'exchangestandard'}).SkuPartNumber))"
+                    $LicenseFallBackName = $license ; 
+
+                    $LicSummary = New-Object PSObject -Property @{
+                        DisplayName         = $MGUser.DisplayName ; 
+                        UserPrincipalName   = $MGUser.Userprincipalname ; 
+                        LicAccountSkuID     = $License; 
+                        LicenseFriendlyName = $LicenseFallBackName
+                    };
+                    $AggregLics += $LicSummary ;
+
+                } Else {
+                    $LicSummary = New-Object PSObject -Property @{
+                        #DisplayName         = $MsolU.DisplayName
+                        DisplayName         = $MGUser.DisplayName ; 
+                        #UserPrincipalName   = $MsolU.Userprincipalname ;
+                        UserPrincipalName   = $MGUser.Userprincipalname ; 
+                        LicAccountSkuID     = $License ; 
+                        LicenseFriendlyName = $TextLic ;
+                    };
+                    $AggregLics += $LicSummary ;
+                } # if-E
+            } # loop-E
+        
+        } # if-E
+
+
+        $AggregLics | write-output ; # export the aggreg, NewObject02 was never more than a single lic
+
+    } ;  # PROC-E
+}
+
+#*------^ get-MgUserLicenseDetailTDO.ps1 ^------
+
+
+#*------v test-MGConnection.ps1 v------
+Function test-MGConnectionTDOTDO {
+  <#
+    .SYNOPSIS
+    test-MGConnectionTDOTDO - Test Microsoft.Graph connection status. Wraps Microsoft.Graph\get-MGContext command to return properties of connection (or nothing if disconnected)
+    .NOTES
+    Version     : 0.0.1
+    Author      : Todd Kadrie
+    Website     : http://www.toddomation.com
+    Twitter     : @tostka / http://twitter.com/tostka
+    CreatedDate : 2025-12-30
+    FileName    : test-MGConnectionTDO.ps1
+    License     : MIT License
+    Copyright   : (c) 2025 Todd Kadrie
+    Github      : https://github.com/tostka/verb-MG
+    Tags        : Powershell,MicrosoftGraph,Tenant,Connectivty,Test
+    AddedCredit : REFERENCE
+    AddedWebsite: URL
+    AddedTwitter: URL    
+    REVISIONS   :
+    * 4:26 PM 12/30/2025 init
+    .DESCRIPTION
+    test-MGConnectionTDO - Test Microsoft.Graph connection status. Wraps Microsoft.Graph\get-MGContext command to return properties of connection (or nothing if disconnected). Returns summary object with status evaluated.
+    
+    Returns the following properties: 
+
+    ClientId               : 99a99aaa-999a-9a9a-a9a9-999a99aaa99a
+    TenantId               : 999999aa-a99a-99a9-9aaa-99a9a99aa99a
+    Scopes                 : {Application.Read.All, Application.ReadWrite.All, AuditLog.Read.All, Chat.ReadWrite...}
+    AuthType               : Delegated
+    TokenCredentialType    : InteractiveBrowser
+    CertificateThumbprint  : 
+    CertificateSubjectName : 
+    Account                : a-aaaa.aaaaaa@aaaa.aaa
+    AppName                : Microsoft Graph Command Line Tools
+    ContextScope           : CurrentUser
+    Certificate            : 
+    ManagedIdentityId      : 
+    ClientSecret           : 
+    Environment            : Global
+    TenantAligned          : True
+    isUser                 : True
+    isAppOnly              : False
+    isCBA                  : False
+    hasRequiredScopes      : False
+    missingScopes          : {User.Read.All, Group.Read.All, Domain.Read.All}
+    isConnected            : True
+
+    # Typical interactive connection returned by get-MGContext:
+
+    ClientId               : 99a99aaa-999a-9a9a-a9a9-999a99aaa99a
+    TenantId               : 999999aa-a99a-99a9-9aaa-99a9a99aa99a
+    Scopes                 : {Application.Read.All, Application.ReadWrite.All, AuditLog.Read.All, Chat.ReadWrite...}
+    AuthType               : Delegated
+    TokenCredentialType    : InteractiveBrowser
+    CertificateThumbprint  :
+    CertificateSubjectName :
+    SendCertificateChain   : False
+    Account                : a-aaaa.aaaaaa@aaaa.aaa
+    AppName                : Microsoft Graph Command Line Tools
+    ContextScope           : CurrentUser
+    Certificate            :
+    PSHostVersion          : 5.1.14393.8688
+    ManagedIdentityId      :
+    ClientSecret           :
+    Environment            : Global
+  
+    # Typical app-only session connection returned by get-MGContext:
+
+    ClientId               : 99a99aaa-999a-9a9a-a9a9-999a99aaa99a
+    TenantId               : 999999aa-a99a-99a9-9aaa-99a9a99aa99a
+    Scopes                 : {Application.Read.All, Application.ReadWrite.All, AuditLog.Read.All, Chat.ReadWrite...}
+    AuthType               : AppOnly
+    TokenCredentialType    : ClientCertificate
+    CertificateThumbprint  : 9A9A999A999A9A9999999A9A9AAA99AAA99AA9A9
+    CertificateSubjectName :
+    SendCertificateChain   : False
+    Account                : 
+    AppName                : Aaaaaaaaaaaa App
+    ContextScope           : Process
+    Certificate            :
+    PSHostVersion          : 7.4.6
+    ManagedIdentityId      :
+    ClientSecret           :
+    Environment            : Global
+
+    .PARAMETER TenantID
+    Target TenantID (used for confirmation matching)[-TenantID '999999aa-a99a-99a9-9aaa-99a9a99aa99a']
+    .PARAMETER RequiredScopes
+    Scopes required for planned cmdlets to be executed[-RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]
+    .INPUTS
+    None. Does not accepted piped input.
+    .OUTPUTS
+    System.Object   Returns an object summarizing connection status and properties (evaluated trom get-MGContext output properties)
+    .EXAMPLE
+    PS> if(-not (test-MGConnectionTDO).isConnected){
+    PS>     Connect-MgGraph -Scopes $ScopesNeeded -NoWelcome -ErrorAction Stop 
+    PS> } ; 
+    Demo usage to trigger connection as needed
+    .EXAMPLE
+    PS> if(-not (test-MGConnection -RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')).isConnected){
+    PS>     Connect-MgGraph -Scopes $ScopesNeeded -NoWelcome -ErrorAction Stop 
+    PS> } ; 
+    Demo usage to trigger connection as needed, with scope testing
+    .LINK
+    https://github.com/tostka/verb-MG
+    #>
+    # #Requires -Modules Microsoft.Graph
+    [CmdletBinding()]
+    [Alias('tMGC','test-MGConnection')]
+    Param(
+        #[Parameter()]$Credential = $global:credo365TORSID
+        # no supported cred param
+        #[Parameter(Position=0,Mandatory=$True,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true,HelpMessage="HELPMSG[-PARAM SAMPLEINPUT]")]
+        [Parameter(Position=0,Mandatory=$false,HelpMessage="Target TenantID (used for confirmation matching)[-TenantID '999999aa-a99a-99a9-9aaa-99a9a99aa99a']")]
+            $TenantID = $tormeta.o365_TenantID,
+        [Parameter(Mandatory=$false,HelpMessage="Scopes required for planned cmdlets to be executed[-RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]")]
+            [array]$RequiredScopes
+    ) ;
+    BEGIN{
+        $verbose = ($VerbosePreference -eq "Continue") ; 
+        if(-not(get-command get-mgcontext)){
+            $smsg = "missing get-mgcontext: " ; 
+            $smsg += "`nuse: Install-Module Microsoft.Graph -Scope CurrentUser" ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+            else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+            $false | write-output ; 
+        } 
+        $oRet = [ordered]@{
+            ClientId = $null ; 
+            TenantId = $null; 
+            Scopes = $null ; 
+            AuthType = $null ; 
+            TokenCredentialType = $null; 
+            CertificateThumbprint = $null ; 
+            CertificateSubjectName = $null ; 
+            Account = $null ; 
+            AppName = $null ; 
+            ContextScope = $null ; 
+            Certificate = $null ; 
+            ManagedIdentityId = $null; 
+            ClientSecret = $null; 
+            Environment = $null ; 
+            TenantAligned = $null ;
+            isUser = $null ; 
+            isAppOnly = $null ; 
+            isCBA = $null ; 
+            hasRequiredScopes = $null; 
+            missingScopes = $null ; 
+            isConnected = $false
+        } ; 
+    } ;
+    PROCESS{
+        #Connect-MgGraph -Scopes "Organization.Read.All" -NoWelcome # suppress the banner, or it dumps it into the pipeline!        
+        $mgCS = Get-MgContext -ErrorAction SilentlyContinue ;         
+        if( $mgCS){
+            #New-Object PSObject -Property @{
+            #$oRet = [ordered]@{
+            $oRet.ClientId = $mgCS.ClientId ; 
+            $oRet.TenantId = $mgCS.TenantId ; 
+            $oRet.Scopes = $mgCS.Scopes ; 
+            $oRet.AuthType = $mgCS.AuthType ; 
+            $oRet.TokenCredentialType = $mgCS.TokenCredentialType ; 
+            $oRet.CertificateThumbprint = $mgCS.CertificateThumbprint ; 
+            $oRet.CertificateSubjectName = $mgCS.CertificateSubjectName ; 
+            $oRet.Account = $mgCS.Account ; 
+            $oRet.AppName = $mgCS.AppName ; 
+            $oRet.ContextScope = $mgCS.ContextScope ; 
+            $oRet.Certificate = $mgCS.Certificate ; 
+            $oRet.ManagedIdentityId = $mgCS.ManagedIdentityId ; 
+            $oRet.ClientSecret = $mgCS.ClientSecret ; 
+            $oRet.Environment = $mgCS.Environment ; 
+            $oRet.TenantAligned = if($TenantID -AND ($mgCS.TenantId -eq $TenantID)){$true | write-output }else{$false | write-output } ; 
+            $oRet.isUser = if($mgCS.ClientId -AND $mgCS.AuthType -eq 'Delegated' -AND $mgCS.Account -AND $mgCS.ContextScope -eq 'CurrentUser'){$true | write-output }else{$false | write-output }; 
+            $oRet.isAppOnly = if($mgCS.ClientId -AND $mgCS.AuthType -eq 'AppOnly' -AND $mgCS.AppName -AND $mgCS.ContextScope -eq 'Process'){$true | write-output }else{$false | write-output }; 
+            $oRet.isCBA= if($mgCS.CertificateThumbprint -AND $mgCS.TokenCredentialType -eq 'ClientCertificate' ){$true | write-output }else{$false | write-output };                 
+            $oRet.hasRequiredScopes = $null; 
+            $oRet.missingScopes = $null ; 
+            $oRet.isConnected = $true
+            #} ; 
+            #} | write-output ;
+            if($RequiredScopes){
+                [array]$ScopesNotFound = @() ; 
+                [array]$ScopesNeeded = @() ; 
+                ForEach ($Scope in $RequiredScopes){If ($Scope -notin $Context.Scopes) {$ScopesNotFound += $Scope}}
+                If ($ScopesNotFound){
+                    $ScopesNeeded = $ScopesNotFound -join ", "
+                    $smsg = ("The following scopes are not available: {0}" -f ($ScopesNeeded -join ", "))
+                    <# reconn code that would add the missing
+                    Try {
+                        Connect-MgGraph -Scopes $ScopesNeeded -NoWelcome -ErrorAction Stop 
+                        Write-Host "Successfully connected to Graph with required scopes"
+                    } Catch {
+                        Write-Host "Failed to connect to Graph with required scopes"
+                        Break
+                    }
+                    #>
+                    $smsg += "`nThe following command can be run to request the missing scopes:`n Connect-MgGraph -Scopes $(($ScopesNeeded -join ',')) -NoWelcome -ErrorAction Stop" ;
+                    write-warning $smsg ; 
+                    $oRet.hasRequiredScopes = $false
+                    $oRet.missingScopes = $ScopesNeeded ; 
+                }else{
+                    $oRet.hasRequiredScopes = $true
+                    $oRet.missingScopes = $null ; 
+                }
+            }
+        }else{
+            $oRet.isConnected = $false            
+        }
+    } ; 
+    END{
+        [pscustomobject]$oRet | write-output ; 
+    } ; 
+}
+
+#*------^ test-MGConnection.ps1 ^------
+
+
+#*------v Wait-MGOPSync.ps1 v------
+Function Wait-MGOPSync {
+    <# 
+    .SYNOPSIS
+    Wait-MGOPSync - Dawdle loop for notifying on next AD-EntraID AD sync (Microsoft.Graph)
+    .NOTES
+    Updated By: : Todd Kadrie
+    Website:	http://tinstoys.blogspot.com
+    Twitter:	http://twitter.com/tostka
+    REVISIONS   :
+    * 3:28 PM 1/6/2026 fixed ipmo mg ;  spliced in cmg scaff
+    * 3:34 PM 1/5/2026 rpl AAD => EntraID strings
+    * 11:03 AM 12/31/2025 port from verb-AAD\wait-AADSync to Microsoft.Graph (fu M$) -> verb-MG\Wait-MGOPSync()
+    .DESCRIPTION
+    Wait-MGOPSync - Dawdle loop for notifying on next AD-EntraID AD sync (Microsoft.Graph)
+    .PARAMETER Credential
+    Credential to be used for connection
+    .INPUTS
+    None. Does not accepted piped input.
+    .OUTPUTS
+    Returns an object with LastDirSyncTime, expressed as TimeGMT & TimeLocal
+    .EXAMPLE
+    Wait-MGOPSync
+    .LINK
+    #>
+    Param(
+        #[Parameter()]$Credential = $global:credo365TORSID
+        # no supported cred param
+    ) ; 
+    BEGIN{
+        #region cMG_SCAFFOLD ; #*------v cMG_SCAFFOLD v------
+        if(-not (get-command  test-mgconnection)){
+            if(-not (get-module -list Microsoft.Graph -ea 0)){
+                $smsg = "MISSING Microsoft.Graph!" ; 
+                $smsg += "`nUse: install-module Microsoft.Graph -scope CurrentUser" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+            } ;             
+        } ;
+        $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+        $o365Cred = $null ;
+        if($Credential -AND $MGCntxt.isConnected){
+            $smsg = "Explicit -Credential:$($Credential.username) -AND `$MGCntxt.isConnected: running pre:Disconnect-MgGraph" ; 
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            # Dmg returns a get-mgcontext into pipe, if you don't cap it corrupts the pipe on your current flow
+            $dOut = Disconnect-MgGraph -Verbose:($VerbosePreference -eq 'Continue')
+            $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+        };
+        if($Credential){
+            $smsg = "`Credential:Explicit credentials specified, deferring to use..." ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            write-verbose "get-TenantCredentials() return format: (emulating)" ; 
+            $o365Cred = [ordered]@{
+                Cred=$Credential ;
+                credType=$null ;
+            } ;
+            $uRoleReturn = resolve-UserNameToUserRole -UserName $Credential.username -verbose:$($VerbosePreference -eq "Continue") ; # Username
+            write-verbose "w full cred opt: $uRoleReturn = resolve-UserNameToUserRole -Credential $Credential -verbose = $($VerbosePreference -eq 'Continue')"  ; 
+            if($uRoleReturn.UserRole){
+                $o365Cred.credType = $uRoleReturn.UserRole ;
+            } else {
+                $smsg = "Unable to resolve `$credential.username ($($credential.username))"
+                $smsg += "`nto a usable 'UserRole' spec!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } #Error|Warn|Debug
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                throw $smsg ;
+                Break ;
+            } ;
+        } else {
+            if($MGCntxt.isConnected){
+                if($MgCntxt.isUser){
+                    $TenantTag = $TenOrg = get-TenantTag -Credential $MgCntxt.Account ;
+                    $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                    $credential = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue") ;
+                } elseif($MgCntxt.isCBA -AND $MgCntxt.AppName -match 'CBACert-(\w{3})'){
+                        #$MgCntxt.AppName.split('-')[-1]
+                        $TenantTag = $TenOrg = $matches[1]
+                        # also need credential
+                        $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                        write-verbose "ret'd obj:$uRoleReturn = [ordered]@{     UserRole = $null ;     Service = $null ;     TenOrg = $null ; } " ;  
+                        $credRet = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue")
+                        $credential = $credRet.Cred ;
+                }else{
+                    $smsg = "UNABLE TO RESOLVE mgContext to a working TenOrg!" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                }
+            } ; 
+            $pltGTCred=@{TenOrg=$TenOrg ; UserRole=$null; verbose=$($verbose)} ;
+            if($UserRole){
+                $smsg = "(`$UserRole specified:$($UserRole -join ','))" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                $pltGTCred.UserRole = $UserRole;
+            } else {
+                $smsg = "(No `$UserRole found, defaulting to:'CSVC','SID' " ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                $pltGTCred.UserRole = 'CSVC','SID' ;
+            } ;
+            $smsg = "get-TenantCredentials w`n$(($pltGTCred|out-string).trim())" ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level verbose }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            $o365Cred = get-TenantCredentials @pltGTCred
+        } ;
+        if($o365Cred.credType -AND $o365Cred.Cred -AND $o365Cred.Cred.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+            $smsg = "(validated `$o365Cred contains .credType:$($o365Cred.credType) & `$o365Cred.Cred.username:$($o365Cred.Cred.username)" ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            write-verbose "populate $credential with return, if not populated (may be required for follow-on calls that pass common $Credentials through)" ; 
+            if((gv Credential) -AND $Credential -eq $null){
+                $credential = $o365Cred.Cred ;
+            }elseif($credential.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+                $smsg = "(`$Credential is properly populated; explicit -Credential was in initial call)" ; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            } else {
+                $smsg = "`$Credential is `$NULL, AND $o365Cred.Cred is unusable to populate!" ;
+                $smsg = "downstream commands will *not* properly pass through usable credentials!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                throw $smsg ;
+                break ;
+            } ;
+        } else {
+            $smsg = "UNABLE TO RESOLVE FUNCTIONAL CredType/UserRole from specified explicit -Credential:$($Credential.username)!" ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+            else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            break ;
+        } ;         
+        $pltCMG = [ordered]@{
+            Credential = $Credential ;
+            verbose = $($VerbosePreference -eq "Continue")  ;
+        } ;
+        if((get-command Connect-MG).Parameters.keys -contains 'silent'){
+            $pltCMG.add('Silent',$silent) ;
+        } ;
+        #endregion cMG_SCAFFOLD ; #*------^ END cMG_SCAFFOLD ^------
+        #Connect-MgGraph -Scopes "Organization.Read.All" -NoWelcome # suppress the banner, or it dumps it into the pipeline!
+        $pltCMG.add('Scopes', "Organization.Read.All" ) ;
+        #$LastDirSyncTime = (Get-MsolCompanyInformation).LastDirSyncTime ;
+        #$LastDirSyncTime = (Get-AzureADTenantDetail).CompanyLastDirSyncTime ;
+        connect-MG @pltCMG ; 
+        $LastDirSyncTime = Get-MgOrganization | select -expand OnPremisesLastSyncDateTime
+    }
+    PROCESS{                
+        write-host -foregroundcolor yellow "$((get-date).ToString('HH:mm:ss')):Waiting for next AD-> EntraID Dirsync:`n(prior:$($LastDirSyncTime.ToLocalTime()))`n[" ; 
+        Do {Connect-MgGraph -Scopes "Organization.Read.All" -NoWelcome  ; write-host "." -NoNewLine ; Start-Sleep -m (1000 * 5) } Until ((Get-MgOrganization).OnPremisesLastSyncDateTime -ne $LastDirSyncTime) ;
+    } ; 
+    END{
+        $LatestNewSync = (Get-MgOrganization).OnPremisesLastSyncDateTime ; 
+        New-Object PSObject -Property @{
+          TimeGMT   = $LatestNewSync   ;
+          TimeLocal = $LatestNewSync.ToLocalTime() ;
+        } | write-output ;
+        write-host -foregroundcolor yellow "]`n$((get-date).ToString('HH:mm:ss')):AD->EntraID REPLICATED!" ; 
+        write-host "`a" ; write-host "`a" ; write-host "`a" ;
+    } ; 
+} ; #*------^ END Function Wait-MGOPSync ^------
+if(!(get-alias Wait-MSolSync -ea 0 )) {Set-Alias -Name 'wait-MSolSync' -Value 'Wait-MGOPSync' ; }
+
+#*------^ Wait-MGOPSync.ps1 ^------
+
+
+#*======^ END FUNCTIONS ^======
+
+Export-ModuleMember -Function connect-MG,push-TLSLatest,get-MGCodeCmdletPermissionsTDO,get-MGLicenseFullName,get-MGLicensePlanlist,get-MGOPLastSync,get-MgUserFull,get-MgUserLicenseDetailTDO,test-MGConnectionTDOTDO,Wait-MGOPSync -Alias *
+
+
+
+
+# SIG # Begin signature block
+# MIIELgYJKoZIhvcNAQcCoIIEHzCCBBsCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
+# gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUjKZgC32whNaF+0ayhx3UATte
+# UW6gggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
+# MCwxKjAoBgNVBAMTIVBvd2VyU2hlbGwgTG9jYWwgQ2VydGlmaWNhdGUgUm9vdDAe
+# Fw0xNDEyMjkxNzA3MzNaFw0zOTEyMzEyMzU5NTlaMBUxEzARBgNVBAMTClRvZGRT
+# ZWxmSUkwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBALqRVt7uNweTkZZ+16QG
+# a+NnFYNRPPa8Bnm071ohGe27jNWKPVUbDfd0OY2sqCBQCEFVb5pqcIECRRnlhN5H
+# +EEJmm2x9AU0uS7IHxHeUo8fkW4vm49adkat5gAoOZOwbuNntBOAJy9LCyNs4F1I
+# KKphP3TyDwe8XqsEVwB2m9FPAgMBAAGjdjB0MBMGA1UdJQQMMAoGCCsGAQUFBwMD
+# MF0GA1UdAQRWMFSAEL95r+Rh65kgqZl+tgchMuKhLjAsMSowKAYDVQQDEyFQb3dl
+# clNoZWxsIExvY2FsIENlcnRpZmljYXRlIFJvb3SCEGwiXbeZNci7Rxiz/r43gVsw
+# CQYFKw4DAh0FAAOBgQB6ECSnXHUs7/bCr6Z556K6IDJNWsccjcV89fHA/zKMX0w0
+# 6NefCtxas/QHUA9mS87HRHLzKjFqweA3BnQ5lr5mPDlho8U90Nvtpj58G9I5SPUg
+# CspNr5jEHOL5EdJFBIv3zI2jQ8TPbFGC0Cz72+4oYzSxWpftNX41MmEsZkMaADGC
+# AWAwggFcAgEBMEAwLDEqMCgGA1UEAxMhUG93ZXJTaGVsbCBMb2NhbCBDZXJ0aWZp
+# Y2F0ZSBSb290AhBaydK0VS5IhU1Hy6E1KUTpMAkGBSsOAwIaBQCgeDAYBgorBgEE
+# AYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwG
+# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ/mRHL
+# +vIs3k0OvDLO0tCy7aiNGzANBgkqhkiG9w0BAQEFAASBgGl/hj6Hr17sjTSft/ZU
+# qCroIFZtHhxWurbFD+eo/jVd7cFgASWpRyaBBDlWFrMhxKtVjX7TV2NQPz483bh6
+# FVpVJZHhPrcYp3PLCIn9nX0SSfn8l2pav8lNA4wtsGt4QkOn9kNN8A9v+JCw0aMv
+# BCsYiAtVfSNv6fE6pXvLhfT2
+# SIG # End signature block
