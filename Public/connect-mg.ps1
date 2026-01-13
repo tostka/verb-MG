@@ -20,6 +20,7 @@ Function connect-MG {
     AddedWebsite:	URL
     AddedTwitter:	URL
     REVISIONS   :
+    * 1:01 PM 1/12/2026 revised connect rpt to put key bits, and then details add: dyn get-mgcontext props expansion, for outputs (acct v cba, only relevent in output)
     * 3:24 PM 1/6/2026 fixed cbh, don't ipmo MG! ; WORKING, added CBH demo call scaffold for use in all calling dep scripts
     * 4:18 PM 12/31/2025 WIP, drating down in the end range ; port from connect-AAD()
     .DESCRIPTION
@@ -187,6 +188,7 @@ Function connect-MG {
             [System.Management.Automation.PSCredential]$Credential,
             # = $global:credo365TORSID, # defer to TenOrg & UserRole resolution
         [Parameter(Mandatory=$False,HelpMessage="Scopes required for planned cmdlets to be executed[-RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]")]
+            [Alias('scopes')] # alias the connect-mggraph underlying param, for passthru
             [array]$RequiredScopes,
         [Parameter(Mandatory = $false, HelpMessage = "Credential User Role spec (SID|CSID|UID|B2BI|CSVC|ESVC|LSVC|ESvcCBA|CSvcCBA|SIDCBA)[-UserRole @('SIDCBA','SID','CSVC')]")]
             # sourced from get-admincred():#182: $targetRoles = 'SID', 'CSID', 'ESVC','CSVC','UID','ESvcCBA','CSvcCBA','SIDCBA' ; 
@@ -259,6 +261,10 @@ Function connect-MG {
         $Verbose = [boolean]($VerbosePreference -eq 'Continue') ;
         #region CONSTANTS_AND_ENVIRO ; #*======v CONSTANTS_AND_ENVIRO v======
 
+        if(-not $Retries){$Retries = 4 };
+        if(-not $RetrySleep){$RetrySleep = 5};
+
+
         #region LOCAL_CONSTANTS ; #*------v LOCAL_CONSTANTS v------
         #endregion LOCAL_CONSTANTS ; #*------^ END LOCAL_CONSTANTS ^------         
 
@@ -267,480 +273,515 @@ Function connect-MG {
         if(-not $rgxSmtpAddr){$rgxSmtpAddr = "^([0-9a-zA-Z]+[-._+&'])*[0-9a-zA-Z]+@([-0-9a-zA-Z]+[.])+[a-zA-Z]{2,63}$" ; } ; # email addr/UPN
         if(-not $rgxDomainLogon){$rgxDomainLogon = '^[a-zA-Z][a-zA-Z0-9\-\.]{0,61}[a-zA-Z]\\\w[\w\.\- ]+$' } ; # DOMAIN\samaccountname 
 
+        # 10:28 AM 1/12/2026 used by $psprppopd to dyn return only the populated of the below - run before each write-log call.
+        $prpGMGCTargets = 'TenantId','ClientId','Scopes','AuthType','TokenCredentialType','CertificateThumbprint','Account','AppName','ContextScope' ; 
         #endregion CONSTANTS_AND_ENVIRO ; #*======^ CONSTANTS_AND_ENVIRO ^======
         #-=-=-=-=-=-=-=-=
-        if(-not (get-command  test-mgconnection)){
-            TRY{
-                ipmo -fo -verb verb-mg -verbose 
-            } CATCH {$ErrTrapd=$Error[0] ;
-                write-host -foregroundcolor gray "TargetCatch:} CATCH [$($ErrTrapd.Exception.GetType().FullName)] {"  ;
-                $smsg = "`n$(($ErrTrapd | fl * -Force|out-string).trim())" ;
-                write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" ;
-                BREAK ; 
-            } ;
-            
-        } ;
-        $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
-        if($Credential -AND $MGCntxt.isConnected){
-            $smsg = "Explicit -Credential:$($Credential.username) -AND `$MGCntxt.isConnected: running pre:Disconnect-MgGraph" ; 
-            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-            # Dmg returns a get-mgcontext into pipe, if you don't cap it corrupts the pipe on your current flow
-            $dOut = Disconnect-MgGraph -Verbose:($VerbosePreference -eq 'Continue')
-            $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
-        };
-        if(-not $Credential){
-            if($MGCntxt.isConnected){
-                if($MgCntxt.isUser){
-                    $TenantTag = $TenOrg = get-TenantTag -Credential $MgCntxt.Account ;
-                    $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
-                    $credential = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue") ;
-                } elseif($MgCntxt.isCBA -AND $MgCntxt.AppName -match 'CBACert-(\w{3})'){
-                        #$MgCntxt.AppName.split('-')[-1]
-                        $TenantTag = $TenOrg = $matches[1]
-                        # also need credential
-                        $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
-                        write-verbose "ret'd obj:$uRoleReturn = [ordered]@{     UserRole = $null ;     Service = $null ;     TenOrg = $null ; } " ;  
-                        $credRet = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue")
-                        $credential = $credRet.Cred ;
-                }else{
-                    $smsg = "UNABLE TO RESOLVE mgContext to a working TenOrg!" ;
-                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
-                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                }
-            }ELSE{ ; 
-                if($UserRole){
-                    $smsg = "Using specified -UserRole:$( $UserRole -join ',' )" ;
-                    if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
-                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
-                } else { $UserRole = @('SID','CSVC') } ;
-            } ; 
-            if($TenOrg){
-                $smsg = "Using explicit -TenOrg:$($TenOrg)" ;
-            } else {
-                switch -regex ($env:USERDOMAIN){
-                    ([regex]('(' + (( @($TORMeta.legacyDomain,$CMWMeta.legacyDomain)  |foreach-object{[regex]::escape($_)}) -join '|') + ')')).tostring() {$TenOrg = $env:USERDOMAIN.substring(0,3).toupper() } ;
-                    $TOLMeta.legacyDomain {$TenOrg = 'TOL' }
-                    default {throw "UNRECOGNIZED `$env:USERDOMAIN!:$($env:USERDOMAIN)" ; exit ; } ;
-                } ;
-                $smsg = "Imputed `$TenOrg from logged on USERDOMAIN:$($TenOrg)" ;
-            } ;
-            if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
-            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
-            $o365Cred = $null ;
-            $pltGTCred=@{TenOrg=$TenOrg ; UserRole= $UserRole; verbose=$($verbose)} ;
-            $smsg = "get-TenantCredentials w`n$(($pltGTCred|out-string).trim())" ;
-            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level verbose }
-            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
-            $o365Cred = get-TenantCredentials @pltGTCred ;
-            if($o365Cred.credType -AND $o365Cred.Cred -AND $o365Cred.Cred.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
-                $smsg = "(validated `$o365Cred contains .credType:$($o365Cred.credType) & `$o365Cred.Cred.username:$($o365Cred.Cred.username)" ;
-                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
-                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
-                $Credential = $o365Cred.Cred ;
-            } else {
-                $smsg = "UNABLE TO RESOLVE FUNCTIONAL CredType/UserRole from specified explicit -Credential:$($Credential.username)!" ;
-                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
-                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                break ;
-            } ;
-        } else {
-            # test-exotoken only applies if $UseConnEXO  $false
-            $TenOrg = get-TenantTag -Credential $Credential ;
-        } ;
-        # build the cred etc once, for all below:
-        $pltCMG=[ordered]@{
-            #Credential = $Credential ;
-            verbose = $($verbose) ;
-            erroraction = 'STOP' ;
-            ErrorVariable = 'Err_CMG' ;
-        } ;
-        <#if((gcm connect-MgGraph).Parameters.keys -contains 'silent'){
-            $pltCMG.add('Silent',$false) ;
-        } ;
-        #>
-        if($Silent){
-            $smsg = "-Silent: Adding -NoWelcome to connect-mggraph splat" ; 
-            if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
-            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
-            $pltCMG.add('NoWelcome',$true) ; 
-        } ; 
-        # defer to resolve-UserNameToUserRole -Credential $Credential
-        $uRoleReturn = resolve-UserNameToUserRole -Credential $Credential ;
-        if($credential.username -match $rgxCertThumbprint){
-            $certTag = $uRoleReturn.TenOrg ;
-        } ; 
-        #-=-=-=-=-=-=-=-=
-
-        $smsg = "EXEC:get-TenantMFARequirement -Credential $($Credential.username)" ; 
-        if($silent){} else { 
-            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
-            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-        } ; 
-        $MFA = get-TenantMFARequirement -Credential $Credential ;
-        $smsg = "EXEC:get-TenantTag -Credential $($Credential.username)" ; 
-        if($silent){} else { 
-            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
-            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-        } ;         
-        $TenantTag = $TenOrg = get-TenantTag -Credential $Credential ; 
-        $sTitleBarTag = @("MG") ;
-        $sTitleBarTag += $TenantTag ;
-        $TenantID = get-TenantID -Credential $Credential ;
-
+        
     } ;
     PROCESS {
 
         $modname = 'Microsoft.Graph' ; 
-        <# 3:20 PM 1/5/2026 DON'T IPMO MICROSOFT.GRAPH! IT'S TO HUGE!
-        $smsg = "(load/install $($modname) module)" ; 
-        if($silent){} else { 
-            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
-            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-        } ;
-        $pltIMod = @{Name = $modname ; ErrorAction = 'Stop' ; verbose=$true} ;
-        $error.clear() ;
-        $oxmo = $null ; 
-        if(-not ( $oxmo = Get-Module @pltIMod  )){
-            Try {
-                $smsg = "Import-Module w`n$(($pltIMod|out-string).trim())" ;
+
+        # it's failing on initial, force retries
+        $Exit = 0 ;
+        Do {
+
+            if(-not (get-command  test-mgconnection)){
+                TRY{
+                    ipmo -fo -verb verb-mg -verbose 
+                } CATCH {$ErrTrapd=$Error[0] ;
+                    write-host -foregroundcolor gray "TargetCatch:} CATCH [$($ErrTrapd.Exception.GetType().FullName)] {"  ;
+                    $smsg = "`n$(($ErrTrapd | fl * -Force|out-string).trim())" ;
+                    write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" ;
+                    BREAK ; 
+                } ;
+            
+            } ;
+            $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+            if($Credential -AND $MGCntxt.isConnected){
+                $smsg = "Explicit -Credential:$($Credential.username) -AND `$MGCntxt.isConnected: running pre:Disconnect-MgGraph" ; 
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                # Dmg returns a get-mgcontext into pipe, if you don't cap it corrupts the pipe on your current flow
+                $dOut = Disconnect-MgGraph -Verbose:($VerbosePreference -eq 'Continue')
+                $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+            };
+            if(-not $Credential){
+                if($MGCntxt.isConnected){
+                    if($MgCntxt.isUser){
+                        $TenantTag = $TenOrg = get-TenantTag -Credential $MgCntxt.Account ;
+                        $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                        $credential = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue") ;
+                    } elseif($MgCntxt.isCBA -AND $MgCntxt.AppName -match 'CBACert-(\w{3})'){
+                            #$MgCntxt.AppName.split('-')[-1]
+                            $TenantTag = $TenOrg = $matches[1]
+                            # also need credential
+                            $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                            write-verbose "ret'd obj:$uRoleReturn = [ordered]@{     UserRole = $null ;     Service = $null ;     TenOrg = $null ; } " ;  
+                            $credRet = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue")
+                            $credential = $credRet.Cred ;
+                    }else{
+                        $smsg = "UNABLE TO RESOLVE mgContext to a working TenOrg!" ;
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                        else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    }
+                }ELSE{ ; 
+                    if($UserRole){
+                        $smsg = "Using specified -UserRole:$( $UserRole -join ',' )" ;
+                        if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+                    } else { $UserRole = @('SID','CSVC') } ;
+                } ; 
+                if($TenOrg){
+                    $smsg = "Using explicit -TenOrg:$($TenOrg)" ;
+                } else {
+                    switch -regex ($env:USERDOMAIN){
+                        ([regex]('(' + (( @($TORMeta.legacyDomain,$CMWMeta.legacyDomain)  |foreach-object{[regex]::escape($_)}) -join '|') + ')')).tostring() {$TenOrg = $env:USERDOMAIN.substring(0,3).toupper() } ;
+                        $TOLMeta.legacyDomain {$TenOrg = 'TOL' }
+                        default {throw "UNRECOGNIZED `$env:USERDOMAIN!:$($env:USERDOMAIN)" ; exit ; } ;
+                    } ;
+                    $smsg = "Imputed `$TenOrg from logged on USERDOMAIN:$($TenOrg)" ;
+                } ;
+                if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+                $o365Cred = $null ;
+                $pltGTCred=@{TenOrg=$TenOrg ; UserRole= $UserRole; verbose=$($verbose)} ;
+                $smsg = "get-TenantCredentials w`n$(($pltGTCred|out-string).trim())" ;
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level verbose }
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+                $o365Cred = get-TenantCredentials @pltGTCred ;
+                if($o365Cred.credType -AND $o365Cred.Cred -AND $o365Cred.Cred.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+                    $smsg = "(validated `$o365Cred contains .credType:$($o365Cred.credType) & `$o365Cred.Cred.username:$($o365Cred.Cred.username)" ;
+                    if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+                    $Credential = $o365Cred.Cred ;
+                } else {
+                    $smsg = "UNABLE TO RESOLVE FUNCTIONAL CredType/UserRole from specified explicit -Credential:$($Credential.username)!" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    break ;
+                } ;
+            } else {
+                # test-exotoken only applies if $UseConnEXO  $false
+                $TenOrg = get-TenantTag -Credential $Credential ;
+            } ;
+            # build the cred etc once, for all below:
+            $pltCMG=[ordered]@{
+                #Credential = $Credential ;
+                verbose = $($verbose) ;
+                erroraction = 'STOP' ;
+                ErrorVariable = 'Err_CMG' ;
+            } ;
+            <#if((gcm connect-MgGraph).Parameters.keys -contains 'silent'){
+                $pltCMG.add('Silent',$false) ;
+            } ;
+            #>
+            if($Silent){
+                $smsg = "-Silent: Adding -NoWelcome to connect-mggraph splat" ; 
+                if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                $pltCMG.add('NoWelcome',$true) ; 
+            } ; 
+            # defer to resolve-UserNameToUserRole -Credential $Credential
+            $uRoleReturn = resolve-UserNameToUserRole -Credential $Credential ;
+            if($credential.username -match $rgxCertThumbprint){
+                $certTag = $uRoleReturn.TenOrg ;
+            } ; 
+            #-=-=-=-=-=-=-=-=
+
+            $smsg = "EXEC:get-TenantMFARequirement -Credential $($Credential.username)" ; 
+            if($silent){} else { 
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            } ; 
+            $MFA = get-TenantMFARequirement -Credential $Credential ;
+            $smsg = "EXEC:get-TenantTag -Credential $($Credential.username)" ; 
+            if($silent){} else { 
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            } ;         
+            $TenantTag = $TenOrg = get-TenantTag -Credential $Credential ; 
+            $sTitleBarTag = @("MG") ;
+            $sTitleBarTag += $TenantTag ;
+            $TenantID = get-TenantID -Credential $Credential ;
+
+        
+            TRY { 
+
+                if(-not $uRoleReturn){
+                    $smsg = "resolve-UserNameToUserRole -UserName $($Credential.username)..." ; 
+                    if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                    $uRoleReturn = resolve-UserNameToUserRole -UserName $Credential.username -verbose:$($VerbosePreference -eq "Continue") ; 
+                    #$uRoleReturn = resolve-UserNameToUserRole -Credential $Credential -verbose = $($VerbosePreference -eq "Continue") ; 
+                } ; 
+                #$smsg = "get-AADToken..." ; 
+                # closest is get-mgcontext
+                $smsg = "test-mgconnection..." ; 
                 if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
                 else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
-                Import-Module @pltIMod ;
-            } Catch {
-                if(-not ($oxmo = Get-Module @pltIMod -listavailable)){
-                    if($env:computername -match $rgxMyBoxW){$pltIMod.add('scope','CurrentUser')} else { $pltIMod.add('scope','AllUsers')} ;
-                    $smsg = "MISSING $($modname)!: Install-Module? w`n$(($pltIMod|out-string).trim())" ;
+                #$token = get-AADToken -verbose:$($verbose) ;
+                $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue');            
+                $smsg = "convert-TenantIdToTag -TenantId $($MGCntxt.TenantId) `$MGCntxt.tenantid)" ; 
+                if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                # convert token.tenantid to the 3-letter TenOrg
+                $mgCtxtTag = convert-TenantIdToTag -TenantId $MGCntxt.TenantId -verbose:$($verbose) ; 
+                #$Tenantdomain = convert-TenantIdToDomainName -TenantId $MGCntxt.TenantId ;
+                #if( ($null -eq $MGCntxt) -OR ($MGCntxt.count -eq 0)){
+                if($MGCntxt.isconnected -eq $false){
+                    # not connected/authenticated
+                    #Connect-MgGraph -TenantId $TenantID -Credential $Credential ; 
+                    throw "" # gen an error to dump into generic CATCH block
+                }elseif($MGCntxt.count -gt 1){
+                    #$smsg = "MULTIPLE CONTEXTS RETURNED!`n$(( ($MGCntxt) | ft -a  TenantId,UserId,LoginType |out-string).trim())" ; 
+                    $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ; 
+                    $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ; 
+                    $smsg = "MULTIPLE CONTEXTS RETURNED!`n$(($MGCntxt | fl $prpPopd|out-string).trim())" ;  
                     if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
-                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
-                    #Levels:Error|Warn|Info|H1|H2|H3|H4|H5|Debug|Verbose|Prompt|Success
-                    $pltIMod.verbose = $true ; 
-                    $bRet=Read-Host "Enter YYY to continue. Anything else will exit"  ; 
-                    if ($bRet.ToUpper() -eq "YYY") {
-                        Install-Module @pltIMod ; 
-                    } else {
-                            $smsg = "Invalid response. Exiting" ; 
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    # 12:57 PM 1/12/2026 loop the multis
+                    foreach($MGCntxtX in $MGCntxt){
+                        $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                        $tobj = $MGCntxtX ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                        $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                        $smsg += "Connected to:`n$(($MGCntxtX | fl $prpPopd|out-string).trim())"  ;
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                        $smsg = "`nScopes:$($MGCntxtX.scopes -join ', ')" ; 
+                        if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                    }
+                    # want to see if this winds up with a stack of parallel tokens
+                } else {
+                    #$smsg = "Connected to Tenant:`n$((($MGCntxt) | fl TenantId,UserId,AuthType|out-string).trim())" ;  
+                    $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                    $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                    $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                    $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                    if($silent){} else { 
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                        else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    } ;
+                    $smsg = "`nScopes:$($MGCntxt.scopes -join ', ')" ; 
+                    if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                    # flip to resolve-UserNameToUserRole & direct eval the $MGCntxt values:
+                    if( $mgCtxtTag  -eq $uRoleReturn.TenOrg){
+                        if($credential.username -match $rgxCertThumbprint){
+                            $smsg = "(Authenticated to MG:$($uRoleReturn.TenOrg) as $($uRoleReturn.FriendlyName))" ; 
+                        } else { 
+                            $smsg = "(Authenticated to MG:$($uRoleReturn.TenOrg) as $(($MGCntxt).userid))" ; 
+                        } ; 
+                        if($silent){} else { 
+                            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                        } ;   
+                    } else { 
+                        if($credential.username -match $rgxCertThumbprint){
+                            $smsg = "(Disconnecting from $($($mgCtxtTag)) to reconn to -Credential Tenant as $($uRoleReturn.FriendlyName)" ; 
+                        } else { 
+                            $smsg = "(Disconnecting from $($($mgCtxtTag)) to reconn to -Credential Tenant:$($Credential.username.split('@')[1].tostring()))" ; 
+                        } ; 
+                        if($silent){} else { 
+                            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                        } ;                    
+                        $dout = Disconnect-MgGraph ; 
+                        throw "AUTHENTICATED TO WRONG TENANT FOR SPECIFIED CREDENTIAL" 
+                    } ; 
+                } ; 
+
+            }CATCH {
+
+                if($credential.username -match $rgxCertThumbprint){
+                    # RequiredScopes is ignored
+                    $smsg =  "(UserName:Certificate Thumbprint detected)"
+                    if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                    $pltCMG.Add("CertificateThumbprint", [string]$Credential.UserName);                    
+                    $pltCMG.Add("ClientId", [string]$Credential.GetNetworkCredential().Password);
+                    # resolve TenantID (guid) from Credential
+                    if($TenantID = get-TenantID -Credential $Credential){
+                        $pltCMG.Add("TenantId", [string]$TenantID);
+                    } else { 
+                        $smsg = "UNABLE TO RESOLVE `$TENORG:$($TenOrg) TO FUNCTIONAL `$$($TenOrg)meta.o365_TenantDomain!" ;
                         if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } 
                         else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
-                        #exit 1
-                        break ; 
-                    } ; #DoInstall
-                } ;  # IsInstalled
-            } ; # NotImportable
-        } ; # IsImported
-        #>
-        TRY { 
+                        throw $smsg ; 
+                        Break ; 
+                    } ; 
+                    if($uRoleReturn.TenOrg){
+                        $TenOrg = $uRoleReturn.TenOrg  ; 
+                        $smsg = "(using CBA:cred:$($TenOrg):$([string]$uRoleReturn.FriendlyName))" ; 
+                        if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                    } else {
+                        $smsg = "Unable to resolve `$credential.username ($($credential.username))"
+                        $smsg += "`nto a usable 'UserRole' spec!" ;
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } #Error|Warn|Debug
+                        else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                        throw $smsg ;
+                        Break ;
+                    } ; 
+                 } else { 
+                    <# there's no interactive cred support with modern auth/mg, not even spec'ing the UPN
+                    if ($Credential){
+                        $pltCMG.Add("AccountId", [string]$Credential.username);
+                        $smsg = "(using cred:$($credential.username))" ; 
+                        if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                    } else {
+                        $smsg = "Missing dependant -Credential!" ; 
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+                        else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+                        Break ; 
+                    } ; 
+                    #>
+                    $pltgMGCP = [ordered]@{                    
+                        Verbose = $($VerbosePreference -eq 'Continue')
+                    }
+                    if(-not $RequiredScopes -OR $Path -OR $scriptblock -OR $Cmdlets){
+                        $smsg = "Interactive User Logon spec, with neither -RequiredScopes, nor Scope-discovery params (-Path, -scriptblock, -Cmdlets) specified" ; 
+                        $smsg += "`nPlease specify either -RequiredScopes, or a spec to discovery same, when running this command" ; 
+                        write-warning $smsg ;
+                        #break ; 
+                        # 12:53 PM 1/13/2026 drop the break, this might be why retries don't work
+                    }elseif($RequiredScopes){
+                    
+                    }elseif($Path){
+                        $pltgMGCP.add('Path',$Path) ; 
+                    }elseif($scriptblock){
+                        $pltgMGCP.add('scriptblock',$scriptblock) ; 
+                    }elseif($Cmdlets){
+                        $pltgMGCP.add('Cmdlets',$Cmdlets) ; 
+                    }else{
+                        $smsg = "invalid parameter combo!" ; 
+                        write-warning $smsg ;
+                        break ;
+                    }
+                    if($Path -OR $scriptblock -OR $Cmdlets){
+                        if(get-command get-MGCodeCmdletPermissionsTDO -ea STOP){
+                            $RequiredScopes = get-MGCodeCmdletPermissionsTDO @pltgMGCP ; 
+                        }else{
+                            $smsg = "missing dep:get-MGCodeCmdletPermissionsTDO()!" ; 
+                            $smsg += "`nPlease specify either -RequiredScopes, or a spec to discovery same, when running this command" ; 
+                            write-warning $smsg ;
+                            break ; 
+                        }
+                    }
+                    if($RequiredScopes){
+                        $pltCMG.Add('Scopes',$RequiredScopes) ; 
+                    }else{
+                        $smsg = "Unresolved -RequiredScopes!" ; 
+                        write-warning $smsg ;
+                        break ;
+                    } 
+                } 
+                if($uRoleReturn.UserRole -match 'CBA'){ $smsg = "Authenticating to MG:$($uRoleReturn.TenOrg), w CBA cred:$($uRoleReturn.FriendlyName)"  }
+                else {$smsg = "Authenticating to MG:$($uRoleReturn.TenOrg), w $($Credential.username)..."  ;} ; 
+                if($silent){} else { 
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                    else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                } ; 
+            
+                if($TenantID -AND ($pltCMG.keys -notcontains 'TenantID')){
+                    $smsg = "Forcing TenantID:$($TenantID)" ; 
+                    if($silent){} else { 
+                        $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                        $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                        $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                        $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                        $smsg = "`nScopes:$($MGCntxt.scopes -join ', ')" ; 
+                        if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                    } ;                
+                    $pltCMG.add('TenantID',[string]$TenantID) ;
+                } 
+                if(-not $MFA){
+                    $smsg = "EXEC:Connect-MgGraph -Credential $($Credential.username) (no MFA, full credential)" ; 
+                    if($silent){} else { 
+                        $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                        $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                        $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                        $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                        $smsg = "`nScopes:$($MGCntxt.scopes -join ', ')" ; 
+                        if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                    } ;                
+                    if($Credential.username){$pltCMG.add('Credential',$Credential)} ;
+                } else {
+                    if($mgcntxt.isConnected){
+                        if($silent){} else { 
+                            $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                            $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                            $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                            $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                            $smsg = "`nScopes:$($MGCntxt.scopes -join ', ')" ; 
+                            if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                        } ;                
+                    } ; 
+                    if($pltCMG.keys -notcontains 'ClientId' -AND $pltCMG.keys -notcontains 'CertificateThumbprint' -AND $pltCMG.keys -notcontains 'AccountId'){
+                        # add UPN AccountID logon, if missing and non-CBA
+                        if($Credential.username -AND ($pltCMG.keys -notcontains 'AccountId') ){$pltCMG.add('AccountId',$Credential.username)} ;
+                    } 
+                } ;
 
-            if(-not $uRoleReturn){
-                $smsg = "resolve-UserNameToUserRole -UserName $($Credential.username)..." ; 
-                if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
-                $uRoleReturn = resolve-UserNameToUserRole -UserName $Credential.username -verbose:$($VerbosePreference -eq "Continue") ; 
-                #$uRoleReturn = resolve-UserNameToUserRole -Credential $Credential -verbose = $($VerbosePreference -eq "Continue") ; 
-            } ; 
-            #$smsg = "get-AADToken..." ; 
-            # closest is get-mgcontext
-            $smsg = "get-mgcontext..." ; 
+                $smsg = "Connect-MgGraph w`n$(($pltCMG|out-string).trim())" ; 
+                if($silent){} else { 
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                    else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                } ;             
+
+                TRY {
+                    $MGConnection = Connect-MgGraph @pltCMG ; 
+                    if($MGConnection -is [system.array]){
+                        $smsg = "MULTIPLE TENANT CONNECTIONS RETURNED BY connect-MgGraph!" ; 
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Error } #Error|Warn|Debug 
+                        else{ write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                        throw "MULTIPLE TENANT CONNECTIONS RETURNED BY connect-MgGraph!"
+                
+                    } else {
+                        if($silent){} else { 
+                            $smsg = "(single Tenant connection returned)" 
+                            # need to reqry the token for updated status
+                            #$MGCntxt = [Microsoft.Open.Azure.AD.CommonLibrary.AzureSession]::AccessTokens ; # direct call option
+                            $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+                            $mgCtxtTag = convert-TenantIdToTag -TenantId $MGCntxt.TenantId -verbose:$($verbose) ; 
+                            if($MGCntxt.isconnected){
+                                if($silent){} else { 
+                                    $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                                    $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                                    $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                                    $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                                    $smsg = "`nScopes:$($MGCntxt.scopes -join ', ')" ; 
+                                    if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                                } ;
+                            } ; 
+                        } ; 
+                    } ; 
+                } CATCH {
+                    $ErrTrapd=$Error[0] ;
+                    $smsg = "Failed processing $($ErrTrapd.Exception.ItemName). `nError Message: $($ErrTrapd.Exception.Message)`nError Details: $($ErrTrapd)" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                    else{ write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    #-=-record a STATUSWARN=-=-=-=-=-=-=
+                    $statusdelta = ";WARN"; # CHANGE|INCOMPLETE|ERROR|WARN|FAIL ;
+                    if(gv passstatus -scope Script -ea 0){$script:PassStatus += $statusdelta } ;
+                    if(gv -Name PassStatus_$($tenorg) -scope Script -ea 0){set-Variable -Name PassStatus_$($tenorg) -scope Script -Value ((get-Variable -Name PassStatus_$($tenorg)).value + $statusdelta)} ; 
+                    #-=-=-=-=-=-=-=-=
+                    $smsg = "FULL ERROR TRAPPED (EXPLICIT CATCH BLOCK WOULD LOOK LIKE): } catch[$($ErrTrapd.Exception.GetType().FullName)]{" ; 
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level ERROR } #Error|Warn|Debug 
+                    else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    Break #Opts: STOP(debug)|EXIT(close)|CONTINUE(move on in loop cycle)|BREAK(exit loop iteration)|THROW $_/'CustomMsg'(end script with Err output)
+                } ; 
+            
+                if($silent){} else { 
+                    $smsg = "`n$(($MGConnection |ft -a|out-string).trim())" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
+                    else{ write-host -foregroundcolor white "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                } ; 
+                # can still detect status of last command with $? ($true = success, $false = $failed), and use the $error[0] to examine any errors
+                if ($?) { 
+                    #write-verbose -verbose:$true  "(connected to MgGraph ver2)" ; 
+                    Remove-PSTitlebar 'MG' -verbose:$($VerbosePreference -eq "Continue") 
+                    # work with the current AzureSession $mgCtxt instead - shift into END{}
+                } ;
+            
+            } ; # CATCH-E # err indicates no authenticated connection
+
+            # former end{} block
+            $smsg = "test-mgconnection ..." ;
             if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
             else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
-            #$token = get-AADToken -verbose:$($verbose) ;
-            $mgCtxt = get-mgContext -verbose:$($verbose) ;
-            $smsg = "convert-TenantIdToTag -TenantId $($mgctxt.TenantId) (`$mgCtxt.AccessToken).tenantid)" ; 
+            #$MGCntxt = get-mgContext -verbose:$($verbose) ;
+            $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+            $smsg = "convert-TenantIdToTag -TenantId $($MGCntxt.TenantId) (`$MGCntxt).tenantid)" ;
             if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
             else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
             # convert token.tenantid to the 3-letter TenOrg
-            $mgCtxtTag = convert-TenantIdToTag -TenantId $mgctxt.TenantId -verbose:$($verbose) ; 
-            #$Tenantdomain = convert-TenantIdToDomainName -TenantId $mgctxt.TenantId ;
-            #if( ($null -eq $mgCtxt) -OR ($mgCtxt.count -eq 0)){
-            if($null -eq $mgCtxt){
-                # not connected/authenticated
-                #Connect-MgGraph -TenantId $TenantID -Credential $Credential ; 
-                throw "" # gen an error to dump into generic CATCH block
-            }elseif($mgCtxt.count -gt 1){
-                #$smsg = "MULTIPLE CONTEXTS RETURNED!`n$(( ($mgCtxt.AccessToken) | ft -a  TenantId,UserId,LoginType |out-string).trim())" ; 
-                $smsg = "MULTIPLE CONTEXTS RETURNED!`n$`n$(($mgCtxt | fl TenantId,ClientId,LoginType,Account,ContextScope|out-string).trim())" ;  
-                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
-                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                # want to see if this winds up with a stack of parallel tokens
-            } else {
-                #$smsg = "Connected to Tenant:`n$((($mgCtxt.AccessToken) | fl TenantId,UserId,AuthType|out-string).trim())" ;  
-                $smsg = "Connected to Tenant:`n$(($mgCtxt | fl TenantId,ClientId,LoginType,Account,ContextScope|out-string).trim())" ;  
-                $smsg += "`nScopes:$($mgCtxt.scopes -join ', ')"
-                $smsg += "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ; 
-                if($silent){} else { 
+            $mgCtxtTag = convert-TenantIdToTag -TenantId $MGCntxt.TenantId -verbose:$($verbose) ;
+            $Tenantdomain = convert-TenantIdToDomainName -TenantId $MGCntxt.TenantId ;
+            #if( ($null -eq $MGCntxt) -OR ($MGCntxt.count -eq 0)){
+            if($MGCntxt.isConnected -eq $false){
+                $smsg = "NOT authenticated to any o365 Tenant MgGraph!" ; 
+                if($credential.username -match $rgxCertThumbprint){
+                    $smsg = "Connecting to -Credential Tenant as $($uRoleReturn.FriendlyName)" ;
+                } else {
+                    $smsg = "Connecting to -Credential Tenant:$($Credential.username.split('@')[1].tostring()))" ;
+                } ;
+                if($silent){} else {
                     if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
                     else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
                 } ;
-                # flip to resolve-UserNameToUserRole & direct eval the $mgCtxt values:
+                Disconnect-MgGraph ;
+                connect-MG -verbose:$($verbose) ; 
+                $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+                if($MGCntxt.isConnected){
+                    $Exit = $Retries ;
+                }else{
+                    $Exit ++ ;
+                }
+            } else {
+                if($silent){} else {
+                    $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
+                    $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
+                    $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
+                    $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                    else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                    #Levels:Error|Warn|Info|H1|H2|H3|H4|H5|Debug|Verbose|Prompt|Success
+                    $smsg = "`nScopes:$($MGCntxt.scopes -join ', ')" ; 
+                    if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                } ;
+                # flip to resolve-UserNameToUserRole & direct eval the $MGCntxt values:
                 if( $mgCtxtTag  -eq $uRoleReturn.TenOrg){
                     if($credential.username -match $rgxCertThumbprint){
-                        $smsg = "(Authenticated to MG:$($uRoleReturn.TenOrg) as $($uRoleReturn.FriendlyName))" ; 
-                    } else { 
-                        $smsg = "(Authenticated to MG:$($uRoleReturn.TenOrg) as $(($mgCtxt.AccessToken).userid))" ; 
-                    } ; 
-                    if($silent){} else { 
+                        $smsg = "(Authenticated to MG:$($uRoleReturn.TenOrg) as $($uRoleReturn.FriendlyName))" ;
+                    } else {
+                        $smsg = "(Authenticated to MG:$($uRoleReturn.TenOrg) as $(($MGCntxt).userid))" ;
+                    } ;
+                    if($silent){} else {
                         if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
                         else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                    } ;   
-                } else { 
+                    } ;
+                } else {
                     if($credential.username -match $rgxCertThumbprint){
-                        $smsg = "(Disconnecting from $($($mgCtxtTag)) to reconn to -Credential Tenant as $($uRoleReturn.FriendlyName)" ; 
-                    } else { 
-                        $smsg = "(Disconnecting from $($($mgCtxtTag)) to reconn to -Credential Tenant:$($Credential.username.split('@')[1].tostring()))" ; 
-                    } ; 
-                    if($silent){} else { 
+                        $smsg = "(Disconnecting from $($($mgCtxtTag)) to reconn to -Credential Tenant as $($uRoleReturn.FriendlyName)" ;
+                    } else {
+                        $smsg = "(Disconnecting from $($($mgCtxtTag)) to reconn to -Credential Tenant:$($Credential.username.split('@')[1].tostring()))" ;
+                    } ;
+                    if($silent){} else {
                         if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-                        else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                    } ;                    
-                    $dout = Disconnect-MgGraph ; 
-                    throw "AUTHENTICATED TO WRONG TENANT FOR SPECIFIED CREDENTIAL" 
-                } ; 
-            } ; 
-
-        }CATCH {
-
-            if($credential.username -match $rgxCertThumbprint){
-                # RequiredScopes is ignored
-                $smsg =  "(UserName:Certificate Thumbprint detected)"
-                if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
-                $pltCMG.Add("CertificateThumbprint", [string]$Credential.UserName);                    
-                $pltCMG.Add("ClientId", [string]$Credential.GetNetworkCredential().Password);
-                # resolve TenantID (guid) from Credential
-                if($TenantID = get-TenantID -Credential $Credential){
-                    $pltCMG.Add("TenantId", [string]$TenantID);
-                } else { 
-                    $smsg = "UNABLE TO RESOLVE `$TENORG:$($TenOrg) TO FUNCTIONAL `$$($TenOrg)meta.o365_TenantDomain!" ;
-                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } 
-                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
-                    throw $smsg ; 
-                    Break ; 
-                } ; 
-                if($uRoleReturn.TenOrg){
-                    $TenOrg = $uRoleReturn.TenOrg  ; 
-                    $smsg = "(using CBA:cred:$($TenOrg):$([string]$uRoleReturn.FriendlyName))" ; 
-                    if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
-                } else {
-                    $smsg = "Unable to resolve `$credential.username ($($credential.username))"
-                    $smsg += "`nto a usable 'UserRole' spec!" ;
-                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } #Error|Warn|Debug
-                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                    throw $smsg ;
-                    Break ;
-                } ; 
-             } else { 
-                <# there's no interactive cred support with modern auth/mg, not even spec'ing the UPN
-                if ($Credential){
-                    $pltCMG.Add("AccountId", [string]$Credential.username);
-                    $smsg = "(using cred:$($credential.username))" ; 
-                    if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
-                } else {
-                    $smsg = "Missing dependant -Credential!" ; 
-                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
-                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
-                    Break ; 
-                } ; 
-                #>
-                $pltgMGCP = [ordered]@{                    
-                    Verbose = $($VerbosePreference -eq 'Continue')
-                }
-                if(-not $RequiredScopes -OR $Path -OR $scriptblock -OR $Cmdlets){
-                    $smsg = "Interactive User Logon spec, with neither -RequiredScopes, nor Scope-discovery params (-Path, -scriptblock, -Cmdlets) specified" ; 
-                    $smsg += "`nPlease specify either -RequiredScopes, or a spec to discovery same, when running this command" ; 
-                    write-warning $smsg ;
-                    break ; 
-                }elseif($RequiredScopes){
-                    
-                }elseif($Path){
-                    $pltgMGCP.add('Path',$Path) ; 
-                }elseif($scriptblock){
-                    $pltgMGCP.add('scriptblock',$scriptblock) ; 
-                }elseif($Cmdlets){
-                    $pltgMGCP.add('Cmdlets',$Cmdlets) ; 
+                        else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;;
+                    } ;
+                    $dout = Disconnect-MgGraph ;
+                    throw "AUTHENTICATED TO WRONG TENANT FOR SPECIFIED CREDENTIAL" ;
+                    BREAK
+                } ;
+                if($MGCntxt.isConnected){
+                    $Exit = $Retries ;
                 }else{
-                    $smsg = "invalid parameter combo!" ; 
-                    write-warning $smsg ;
-                    break ;
+                    $Exit ++ ;
                 }
-                if($Path -OR $scriptblock -OR $Cmdlets){
-                    if(get-command get-MGCodeCmdletPermissionsTDO -ea STOP){
-                        $RequiredScopes = get-MGCodeCmdletPermissionsTDO @pltgMGCP ; 
-                    }else{
-                        $smsg = "missing dep:get-MGCodeCmdletPermissionsTDO()!" ; 
-                        $smsg += "`nPlease specify either -RequiredScopes, or a spec to discovery same, when running this command" ; 
-                        write-warning $smsg ;
-                        break ; 
-                    }
-                }
-                if($RequiredScopes){
-                    $pltCMG.Add('Scopes',$RequiredScopes) ; 
-                }else{
-                    $smsg = "Unresolved -RequiredScopes!" ; 
-                    write-warning $smsg ;
-                    break ;
-                } 
-            } 
-            if($uRoleReturn.UserRole -match 'CBA'){ $smsg = "Authenticating to MG:$($uRoleReturn.TenOrg), w CBA cred:$($uRoleReturn.FriendlyName)"  }
-            else {$smsg = "Authenticating to MG:$($uRoleReturn.TenOrg), w $($Credential.username)..."  ;} ; 
-            if($silent){} else { 
-                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
-                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
             } ; 
-            
-            if($TenantID -AND ($pltCMG.keys -notcontains 'TenantID')){
-                $smsg = "Forcing TenantID:$($TenantID)" ; 
-                if($silent){} else { 
-                    #$smsg = "Connected to Tenant:`n$((($mgCtxt.AccessToken) | fl TenantId,UserId,LoginType|out-string).trim())" ; 
-                    $smsg = "Connected to Tenant:`n$(($mgCtxt | fl TenantId,ClientId,LoginType,Account,ContextScope|out-string).trim())" ;  
-                    $smsg += "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ; 
-                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
-                    else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                } ;                
-                $pltCMG.add('TenantID',[string]$TenantID) ;
-            } 
-            if(-not $MFA){
-                $smsg = "EXEC:Connect-MgGraph -Credential $($Credential.username) (no MFA, full credential)" ; 
-                if($silent){} else { 
-                    $smsg = "Connected to Tenant:`n$((($mgCtxt.AccessToken) | fl TenantId,ClientId,LoginType,Account,ContextScope|out-string).trim())" ; 
-                    $smsg += "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ; 
-                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-                    else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                } ;                
-                if($Credential.username){$pltCMG.add('Credential',$Credential)} ;
-            } else {
-                if($mgCtxt){
-                    if($silent){} else { 
-                        $smsg = "Connected to Tenant:`n$((($mgCtxt.AccessToken) | fl TenantId,ClientId,LoginType,Account,ContextScope|out-string).trim())" ; 
-                        $smsg += "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ; 
-                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-                        else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                    } ;                
-                } ; 
-                if($pltCMG.keys -notcontains 'ClientId' -AND $pltCMG.keys -notcontains 'CertificateThumbprint' -AND $pltCMG.keys -notcontains 'AccountId'){
-                    # add UPN AccountID logon, if missing and non-CBA
-                    if($Credential.username -AND ($pltCMG.keys -notcontains 'AccountId') ){$pltCMG.add('AccountId',$Credential.username)} ;
-                } 
-            } ;
 
-            $smsg = "Connect-MgGraph w`n$(($pltCMG|out-string).trim())" ; 
-            if($silent){} else { 
-                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-            } ;             
-
-            TRY {
-                $MGConnection = Connect-MgGraph @pltCMG ; 
-                if($MGConnection -is [system.array]){
-                    $smsg = "MULTIPLE TENANT CONNECTIONS RETURNED BY connect-MgGraph!" ; 
-                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Error } #Error|Warn|Debug 
-                    else{ write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                    throw "MULTIPLE TENANT CONNECTIONS RETURNED BY connect-MgGraph!"
-                
-                } else {
-                    if($silent){} else { 
-                        $smsg = "(single Tenant connection returned)" 
-                        # need to reqry the token for updated status
-                        #$mgCtxt = [Microsoft.Open.Azure.AD.CommonLibrary.AzureSession]::AccessTokens ; # direct call option
-                        $mgCtxt = get-mgContext -verbose:$($verbose) ;
-                        $mgCtxtTag = convert-TenantIdToTag -TenantId $mgctxt.TenantId -verbose:$($verbose) ; 
-                        if($mgCtxt){
-                            if($silent){} else { 
-                                $smsg = "Connected to Tenant:`n$((($mgCtxt.AccessToken) | fl TenantId,ClientId,LoginType,Account,ContextScope|out-string).trim())" ; 
-                                $smsg += "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ; 
-                                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-                                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                            } ;
-                        } ; 
-                    } ; 
-                } ; 
-            } CATCH {
-                $ErrTrapd=$Error[0] ;
-                $smsg = "Failed processing $($ErrTrapd.Exception.ItemName). `nError Message: $($ErrTrapd.Exception.Message)`nError Details: $($ErrTrapd)" ;
-                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
-                else{ write-warning "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                #-=-record a STATUSWARN=-=-=-=-=-=-=
-                $statusdelta = ";WARN"; # CHANGE|INCOMPLETE|ERROR|WARN|FAIL ;
-                if(gv passstatus -scope Script -ea 0){$script:PassStatus += $statusdelta } ;
-                if(gv -Name PassStatus_$($tenorg) -scope Script -ea 0){set-Variable -Name PassStatus_$($tenorg) -scope Script -Value ((get-Variable -Name PassStatus_$($tenorg)).value + $statusdelta)} ; 
-                #-=-=-=-=-=-=-=-=
-                $smsg = "FULL ERROR TRAPPED (EXPLICIT CATCH BLOCK WOULD LOOK LIKE): } catch[$($ErrTrapd.Exception.GetType().FullName)]{" ; 
-                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level ERROR } #Error|Warn|Debug 
-                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                Break #Opts: STOP(debug)|EXIT(close)|CONTINUE(move on in loop cycle)|BREAK(exit loop iteration)|THROW $_/'CustomMsg'(end script with Err output)
-            } ; 
-            
-            if($silent){} else { 
-                $smsg = "`n$(($MGConnection |ft -a|out-string).trim())" ;
-                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
-                else{ write-host -foregroundcolor white "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-            } ; 
-            # can still detect status of last command with $? ($true = success, $false = $failed), and use the $error[0] to examine any errors
-            if ($?) { 
-                #write-verbose -verbose:$true  "(connected to MgGraph ver2)" ; 
-                Remove-PSTitlebar 'MG' -verbose:$($VerbosePreference -eq "Continue") 
-                # work with the current AzureSession $mgCtxt instead - shift into END{}
-            } ;
-            
-        } ; # CATCH-E # err indicates no authenticated connection
+        } Until ($Exit -eq $Retries) ; 
     } ;  # PROC-E
     END {
-        $smsg = "get-mgContext..." ;
-        if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
-        $mgCtxt = get-mgContext -verbose:$($verbose) ;
-        $smsg = "convert-TenantIdToTag -TenantId $($mgctxt.TenantId) (`$mgCtxt.AccessToken).tenantid)" ;
-        if($silent){}elseif($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
-        # convert token.tenantid to the 3-letter TenOrg
-        $mgCtxtTag = convert-TenantIdToTag -TenantId $mgctxt.TenantId -verbose:$($verbose) ;
-        $Tenantdomain = convert-TenantIdToDomainName -TenantId $mgctxt.TenantId ;
-        if( ($null -eq $mgCtxt) -OR ($mgCtxt.count -eq 0)){
-            $smsg = "NOT authenticated to any o365 Tenant MgGraph!" ; 
-            if($credential.username -match $rgxCertThumbprint){
-                $smsg = "Connecting to -Credential Tenant as $($uRoleReturn.FriendlyName)" ;
-            } else {
-                $smsg = "Connecting to -Credential Tenant:$($Credential.username.split('@')[1].tostring()))" ;
-            } ;
-            if($silent){} else {
-                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-            } ;
-            Disconnect-MgGraph ;
-            connect-MG -verbose:$($verbose) ; 
-        } else {
-            $smsg = "Connected to Tenant:`n$((($mgCtxt.AccessToken) | fl TenantId,ClientId,LoginType,Account,ContextScope|out-string).trim())" ;
-            $smsg += "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ; 
-            if($silent){} else {
-                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-            } ;
-            # flip to resolve-UserNameToUserRole & direct eval the $mgCtxt values:
-            if( $mgCtxtTag  -eq $uRoleReturn.TenOrg){
-                if($credential.username -match $rgxCertThumbprint){
-                    $smsg = "(Authenticated to MG:$($uRoleReturn.TenOrg) as $($uRoleReturn.FriendlyName))" ;
-                } else {
-                    $smsg = "(Authenticated to MG:$($uRoleReturn.TenOrg) as $(($mgCtxt.AccessToken).userid))" ;
-                } ;
-                if($silent){} else {
-                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-                    else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                } ;
-            } else {
-                if($credential.username -match $rgxCertThumbprint){
-                    $smsg = "(Disconnecting from $($($mgCtxtTag)) to reconn to -Credential Tenant as $($uRoleReturn.FriendlyName)" ;
-                } else {
-                    $smsg = "(Disconnecting from $($($mgCtxtTag)) to reconn to -Credential Tenant:$($Credential.username.split('@')[1].tostring()))" ;
-                } ;
-                if($silent){} else {
-                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
-                    else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;;
-                } ;
-                $dout = Disconnect-MgGraph ;
-                throw "AUTHENTICATED TO WRONG TENANT FOR SPECIFIED CREDENTIAL" ;
-            } ;
-        } ; 
+        # moved into retry loop
 
     } ; # END-E
 }
