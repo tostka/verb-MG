@@ -20,6 +20,7 @@ Function connect-MG {
     AddedWebsite:	URL
     AddedTwitter:	URL
     REVISIONS   :
+    * 2:14 PM 1/16/2026 add -noWelcome support (as variant of -silent block)
     * 1:01 PM 1/12/2026 revised connect rpt to put key bits, and then details add: dyn get-mgcontext props expansion, for outputs (acct v cba, only relevent in output)
     * 3:24 PM 1/6/2026 fixed cbh, don't ipmo MG! ; WORKING, added CBH demo call scaffold for use in all calling dep scripts
     * 4:18 PM 12/31/2025 WIP, drating down in the end range ; port from connect-AAD()
@@ -47,6 +48,8 @@ Function connect-MG {
         Optional Tenant Tag (wo -Credential)[-TenOrg 'XYZ']
     .PARAMETER silent
     Switch to suppress all non-error echos
+    .PARAMETER NoWelcome
+        Hides the welcome message.
     .INPUTS
     None. Does not accepted piped input.
     .OUTPUTS
@@ -218,6 +221,8 @@ Function connect-MG {
             [string[]]$Cmdlets,
         [Parameter(Mandatory=$False,HelpMessage="Fall-back Scopes for non-AppID, _Credential_ connections (defaults to working SID user/exo /domain/license mgmt roles)[-DefaultScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]")]
             [array]$DefaultScopes = @('Application.Read.All','Application.ReadWrite.All','AuditLog.Read.All','Chat.ReadWrite','DeviceManagementApps.Read.All','DeviceManagementApps.ReadWrite.All','DeviceManagementConfiguration.Read.All','DeviceManagementConfiguration.ReadWrite.All','DeviceManagementManagedDevices.Read.All','DeviceManagementManagedDevices.ReadWrite.All','DeviceManagementServiceConfig.Read.All','DeviceManagementServiceConfig.ReadWrite.All','Directory.Read.All','Directory.ReadWrite.All','Domain.Read.All','email','Group.Read.All','Group.ReadWrite.All','GroupMember.Read.All','GroupMember.ReadWrite.All','LicenseAssignment.Read.All','Mail.Send','openid','Organization.Read.All','Organization.ReadWrite.All','profile','RoleManagement.Read.Directory','User.Read','User.Read.All','User.ReadBasic.All','User.ReadWrite.All'),
+        [Parameter(HelpMessage="Hides the welcome message.[-NoWelcome]")]
+            [switch] $NoWelcome,
         [Parameter(HelpMessage="Silent output (suppress status echos)[-silent]")]
             [switch] $silent
     ) ;
@@ -379,6 +384,11 @@ Function connect-MG {
             #>
             if($Silent){
                 $smsg = "-Silent: Adding -NoWelcome to connect-mggraph splat" ; 
+                if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                $pltCMG.add('NoWelcome',$true) ; 
+            }elseif($NoWelcome){
+                $smsg = "-NoWelcome: Adding -NoWelcome to connect-mggraph splat" ; 
                 if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
                 else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
                 $pltCMG.add('NoWelcome',$true) ; 

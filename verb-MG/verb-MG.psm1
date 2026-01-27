@@ -1,11 +1,11 @@
-﻿# verb-mg.psm1
+﻿# verb-MG.psm1
 
 
   <#
   .SYNOPSIS
   verb-MG - MS Graph module-related functions
   .NOTES
-    Version     : 1.2.0
+    Version     : 2.0.0
   Author      : Todd Kadrie
   Website     :	https://www.toddomation.com
   Twitter     :	@tostka
@@ -18,7 +18,7 @@
   AddedWebsite:	REFERENCEURL
   AddedTwitter:	@HANDLE / http://twitter.com/HANDLE
   REVISIONS
-  * 5/14/2025 - 1.2.0.0
+  * 5/14/2025 - 2.0.0.0
   .DESCRIPTION
   verb-MG - MS Graph module-related functions
   .PARAMETER  PARAMNAME
@@ -654,6 +654,7 @@ Function connect-MG {
     AddedWebsite:	URL
     AddedTwitter:	URL
     REVISIONS   :
+    * 2:14 PM 1/16/2026 add -noWelcome support (as variant of -silent block)
     * 1:01 PM 1/12/2026 revised connect rpt to put key bits, and then details add: dyn get-mgcontext props expansion, for outputs (acct v cba, only relevent in output)
     * 3:24 PM 1/6/2026 fixed cbh, don't ipmo MG! ; WORKING, added CBH demo call scaffold for use in all calling dep scripts
     * 4:18 PM 12/31/2025 WIP, drating down in the end range ; port from connect-AAD()
@@ -681,6 +682,8 @@ Function connect-MG {
         Optional Tenant Tag (wo -Credential)[-TenOrg 'XYZ']
     .PARAMETER silent
     Switch to suppress all non-error echos
+    .PARAMETER NoWelcome
+        Hides the welcome message.
     .INPUTS
     None. Does not accepted piped input.
     .OUTPUTS
@@ -852,6 +855,8 @@ Function connect-MG {
             [string[]]$Cmdlets,
         [Parameter(Mandatory=$False,HelpMessage="Fall-back Scopes for non-AppID, _Credential_ connections (defaults to working SID user/exo /domain/license mgmt roles)[-DefaultScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]")]
             [array]$DefaultScopes = @('Application.Read.All','Application.ReadWrite.All','AuditLog.Read.All','Chat.ReadWrite','DeviceManagementApps.Read.All','DeviceManagementApps.ReadWrite.All','DeviceManagementConfiguration.Read.All','DeviceManagementConfiguration.ReadWrite.All','DeviceManagementManagedDevices.Read.All','DeviceManagementManagedDevices.ReadWrite.All','DeviceManagementServiceConfig.Read.All','DeviceManagementServiceConfig.ReadWrite.All','Directory.Read.All','Directory.ReadWrite.All','Domain.Read.All','email','Group.Read.All','Group.ReadWrite.All','GroupMember.Read.All','GroupMember.ReadWrite.All','LicenseAssignment.Read.All','Mail.Send','openid','Organization.Read.All','Organization.ReadWrite.All','profile','RoleManagement.Read.Directory','User.Read','User.Read.All','User.ReadBasic.All','User.ReadWrite.All'),
+        [Parameter(HelpMessage="Hides the welcome message.[-NoWelcome]")]
+            [switch] $NoWelcome,
         [Parameter(HelpMessage="Silent output (suppress status echos)[-silent]")]
             [switch] $silent
     ) ;
@@ -1013,6 +1018,11 @@ Function connect-MG {
             #>
             if($Silent){
                 $smsg = "-Silent: Adding -NoWelcome to connect-mggraph splat" ; 
+                if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                $pltCMG.add('NoWelcome',$true) ; 
+            }elseif($NoWelcome){
+                $smsg = "-NoWelcome: Adding -NoWelcome to connect-mggraph splat" ; 
                 if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
                 else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
                 $pltCMG.add('NoWelcome',$true) ; 
@@ -2332,72 +2342,306 @@ function get-MGLicensePlanlist {
 Function get-MGOPLastSync {
   <#
     .SYNOPSIS
-    get-MGOPLastSync - Get-MgOrganization last AD-AAD sync (Microsoft.Graph)
+    get-MGOPLastSync - Get specific Tenant/Org's last AD-MG sync (MGGraph)
     .NOTES
-    Version     : 0.0.
     Author      : Todd Kadrie
-    Website     : http://www.toddomation.com
-    Twitter     : @tostka / http://twitter.com/tostka
-    CreatedDate : 2025-12-29
-    FileName    : get-MGOPLastSync.ps1
-    License     : MIT License
-    Copyright   : (c) 2025 Todd Kadrie
-    Github      : https://github.com/tostka/verb-MG
-    Tags        : Powershell,MicrosoftGraph,Tenant,ADSync,OnPremLastSync
-    AddedCredit : REFERENCE
-    AddedWebsite: URL
-    AddedTwitter: URL    
+    Website     :	https://www.toddomation.com
+    Twitter     :	@tostka
     REVISIONS   :
-    * 4:03 PM 12/29/2025 port to Microsoft.Graph, as AAD and Msol are now DEAD 🖕😠 WASTE MY TIME SOME MORE!
-    * 3:50 PM 6/21/2022 as MicrosoftOnline MSOL module is wrecked/deprecated with MFA mandates, retool this to use AAD: (Get-AzureADTenantDetail).CompanyLastDirSyncTime
-    * 4:08 PM 7/24/2020 added full multi-ten cred support
-    * 1:03 PM 5/27/2020 moved alias: get-MsolLastSync win func
-    * 9:51 AM 2/25/2020 condenced output
-    * 8:50 PM 1/12/2020 expanded aliases
-    * 9:17 AM 10/9/2018 get-MGOPLastSync:simplified the collection, and built a Cobj returned in GMT & local timezone
-    * 12:30 PM 11/3/2017 initial version
+    * 2:05 PM 1/16/2026 port from verb-AAD\wait-AADSync to Microsoft.Graph (fu M$) -> verb-MG\Wait-MGOPSync()
     .DESCRIPTION
-    get-MGOPLastSync - Get-MgOrganization last AD-AAD sync (Microsoft.Graph)    
+    get-MGOPLastSync - Get specific Tenant/Org's last AD-MG sync (MGGraph)
+    .PARAMETER TenOrg
+    TenantTag value, indicating Tenants to connect to[-TenOrg 'TOL']
+    .PARAMETER useEXOv2
+    Use EXOv2 (ExchangeOnlineManagement) over basic auth legacy connection [-useEXOv2]
+    .PARAMETER Credential
+    Use specific Credentials (defaults to Tenant-defined SvcAccount)[-Credentials [credential object]]
+    .PARAMETER UserRole
+    Credential User Role spec (SID|CSID|UID|B2BI|CSVC)[-UserRole SID]    
+    .PARAMETER silent
+    Switch to specify suppression of all but warn/error echos.(unimplemented, here for cross-compat)
     .INPUTS
     None. Does not accepted piped input.
     .OUTPUTS
     Returns an object with LastDirSyncTime, expressed as TimeGMT & TimeLocal
     .EXAMPLE
-    PS> $lastsync = get-mgoplastsync
-    PS> $lastsync ; 
-
-            TimeGMT               TimeLocal            
-            -------               ---------            
-            12/29/2025 9:45:33 PM 12/29/2025 3:45:33 PM
-
+    get-MGOPLastSync
     .LINK
-    https://github.com/tostka/verb-MG
+    https://github.com/tostka/verb-mg
     #>
-    # #Requires -Modules Microsoft.Graph
+    #Requires -Modules AzureAD
     [CmdletBinding()]
-    #[Alias('get-MsolLastSync')]
+    # [Alias('get-MsolLastSync')]    
     Param(
-        #[Parameter()]$Credential = $global:credo365TORSID
-        # no supported cred param
-    ) ;
-    $verbose = ($VerbosePreference -eq "Continue") ; 
-    <#
-    try { Get-MsolAccountSku -ErrorAction Stop | out-null }
-    catch [Microsoft.Online.Administration.Automation.MicrosoftOnlineException] {
-      "Not connected to MSOnline. Now connecting to $($credo365.username.split('@')[1])." ;
-      $MFA = get-TenantMFARequirement -Credential $Credential ;
-      if($MFA){ Connect-MsolService }
-      else {Connect-MsolService -Credential $Credential ;}
-    } ;
-    #>
-    Connect-MgGraph -Scopes "Organization.Read.All" -NoWelcome # suppress the banner, or it dumps it into the pipeline!
-    #$LastDirSyncTime = (Get-MsolCompanyInformation).LastDirSyncTime ;
-    #$LastDirSyncTime = (Get-AzureADTenantDetail).CompanyLastDirSyncTime ;
-    $LastDirSyncTime = Get-MgOrganization | select -expand OnPremisesLastSyncDateTime
-    New-Object PSObject -Property @{
-      TimeGMT   = $LastDirSyncTime  ;
-      TimeLocal = $LastDirSyncTime.ToLocalTime() ;
-    } | write-output ;
+        [Parameter(Mandatory=$FALSE,HelpMessage="TenantTag value, indicating Tenants to connect to[-TenOrg 'TOL']")]
+            [ValidateNotNullOrEmpty()]
+            #[ValidatePattern("^\w{3}$")]
+            [string]$TenOrg = $global:o365_TenOrgDefault,
+        [Parameter(HelpMessage="Use EXOv2 (ExchangeOnlineManagement) over basic auth legacy connection [-useEXOv2]")]
+            [switch] $useEXOv2=$true,
+        [Parameter(Mandatory = $false, HelpMessage = "Use specific Credentials (defaults to Tenant-defined SvcAccount)[-Credentials [credential object]]")]
+            [System.Management.Automation.PSCredential]$Credential,
+        [Parameter(Mandatory = $false, HelpMessage = "Credential User Role spec (SID|CSID|UID|B2BI|CSVC|ESVC|LSVC|ESvcCBA|CSvcCBA|SIDCBA)[-UserRole @('SIDCBA','SID','CSVC')]")]
+            # sourced from get-admincred():#182: $targetRoles = 'SID', 'CSID', 'ESVC','CSVC','UID','ESvcCBA','CSvcCBA','SIDCBA' ; 
+            #[ValidateSet("SID","CSID","UID","B2BI","CSVC","ESVC","LSVC","ESvcCBA","CSvcCBA","SIDCBA")]
+            # pulling the pattern from global vari w friendly err
+            [ValidateScript({
+                if(-not $rgxPermittedUserRoles){$rgxPermittedUserRoles = '(SID|CSID|UID|B2BI|CSVC|ESVC|LSVC|ESvcCBA|CSvcCBA|SIDCBA)'} ;
+                if(-not ($_ -match $rgxPermittedUserRoles)){throw "'$($_)' doesn't match `$rgxPermittedUserRoles:`n$($rgxPermittedUserRoles.tostring())" ; } ; 
+                return $true ; 
+            })]
+            [string[]]$UserRole = @('ESvcCBA','CSvcCBA','SIDCBA','SID'),
+        [Parameter(HelpMessage="Silent output (suppress status echos)[-silent]")]
+            [switch] $silent
+    ) ; 
+    BEGIN{
+        #region CONSTANTS_AND_ENVIRO #*======v CONSTANTS-AND-ENVIRO v======
+        # function self-name (equiv to script's: $MyInvocation.MyCommand.Path) ;
+        ${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name ;
+        $Verbose = ($VerbosePreference -eq 'Continue') ;
+        # Get parameters this function was invoked with
+        $PSParameters = New-Object -TypeName PSObject -Property $PSBoundParameters ;
+        $smsg = "(ParameterSetName $($PSCmdlet.ParameterSetName) is in effect)" ;
+        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug
+        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+
+        #region LOCAL_CONSTANTS ; #*------v LOCAL_CONSTANTS v------
+
+        #endregion LOCAL_CONSTANTS ; #*------^ END LOCAL_CONSTANTS ^------
+         <#
+        # recycling the inbound above into next call in the chain
+        # downstream commands
+        $pltRXO = [ordered]@{
+            Credential = $Credential ;
+            verbose = $($VerbosePreference -eq "Continue")  ;
+        } ;
+        #>
+        # 9:26 AM 6/17/2024 this needs cred resolution splice over latest get-exomailboxlicenses
+        $o365Cred = $null ;
+        if($Credential){
+            $smsg = "`Credential:Explicit credentials specified, deferring to use..." ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            #Levels:Error|Warn|Info|H1|H2|H3|H4|H5|Debug|Verbose|Prompt|Success
+                # get-TenantCredentials() return format: (emulating)
+                $o365Cred = [ordered]@{
+                Cred=$Credential ;
+                credType=$null ;
+            } ;
+            $uRoleReturn = resolve-UserNameToUserRole -UserName $Credential.username -verbose:$($VerbosePreference -eq "Continue") ; # Username
+            #$uRoleReturn = resolve-UserNameToUserRole -Credential $Credential -verbose = $($VerbosePreference -eq "Continue") ;   # full Credential support
+            if($uRoleReturn.UserRole){
+                $o365Cred.credType = $uRoleReturn.UserRole ;
+            } else {
+                $smsg = "Unable to resolve `$credential.username ($($credential.username))"
+                $smsg += "`nto a usable 'UserRole' spec!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } #Error|Warn|Debug
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                throw $smsg ;
+                Break ;
+            } ;
+        } else {
+            $pltGTCred=@{TenOrg=$TenOrg ; UserRole=$null; verbose=$($verbose)} ;
+            if($UserRole){
+                $smsg = "(`$UserRole specified:$($UserRole -join ','))" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                $pltGTCred.UserRole = $UserRole;
+            } else {
+                $smsg = "(No `$UserRole found, defaulting to:'CSVC','SID' " ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                #Levels:Error|Warn|Info|H1|H2|H3|H4|H5|Debug|Verbose|Prompt|Success
+                $pltGTCred.UserRole = 'CSVC','SID' ;
+            } ;
+            $smsg = "get-TenantCredentials w`n$(($pltGTCred|out-string).trim())" ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level verbose }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            $o365Cred = get-TenantCredentials @pltGTCred
+        } ;
+        if($o365Cred.credType -AND $o365Cred.Cred -AND $o365Cred.Cred.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+            $smsg = "(validated `$o365Cred contains .credType:$($o365Cred.credType) & `$o365Cred.Cred.username:$($o365Cred.Cred.username)" ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            # 9:58 AM 6/13/2024 populate $credential with return, if not populated (may be required for follow-on calls that pass common $Credentials through)
+            if((gv Credential) -AND $Credential -eq $null){
+                $credential = $o365Cred.Cred ;
+            }elseif($credential.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+                $smsg = "(`$Credential is properly populated; explicit -Credential was in initial call)" ; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            } else {
+                $smsg = "`$Credential is `$NULL, AND $o365Cred.Cred is unusable to populate!" ;
+                $smsg = "downstream commands will *not* properly pass through usable credentials!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                throw $smsg ;
+                break ;
+            } ;
+        } else {
+            $smsg = "UNABLE TO RESOLVE FUNCTIONAL CredType/UserRole from specified explicit -Credential:$($Credential.username)!" ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+            else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            break ;
+        } ; 
+
+        # downstream commands
+        $pltRXO = [ordered]@{
+            Credential = $Credential ;
+            verbose = $($VerbosePreference -eq "Continue")  ;
+        } ;
+        if((get-command Reconnect-EXO).Parameters.keys -contains 'silent'){
+            $pltRxo.add('Silent',$silent) ;
+        } ;
+        # default connectivity cmds - force silent false
+        $pltRXOC = [ordered]@{} ; $pltRXO.GetEnumerator() | ?{ $_.Key -notmatch 'silent' }  | ForEach-Object { $pltRXOC.Add($_.Key, $_.Value) } ; $pltRXOC.Add('silent',$true) ; 
+        if((get-command Reconnect-EXO).Parameters.keys -notcontains 'silent'){
+            $pltRxo.remove('Silent') ;
+        } ; 
+
+        # 2:37 PM 1/7/2026 mg support
+        #region cMG_SCAFFOLD ; #*------v cMG_SCAFFOLD v------
+        if(-not (get-command  test-mgconnection)){
+            if(-not (get-module -list Microsoft.Graph -ea 0)){
+                $smsg = "MISSING Microsoft.Graph!" ;
+                $smsg += "`nUse: install-module Microsoft.Graph -scope CurrentUser" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            } ;
+        } ;
+        $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+        $o365Cred = $null ;
+        if($Credential -AND $MGCntxt.isConnected){
+            $smsg = "Explicit -Credential:$($Credential.username) -AND `$MGCntxt.isConnected: running pre:Disconnect-MgGraph" ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            # Dmg returns a get-mgcontext into pipe, if you don't cap it corrupts the pipe on your current flow
+            $dOut = Disconnect-MgGraph -Verbose:($VerbosePreference -eq 'Continue')
+            $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
+        };
+        if($Credential){
+            $smsg = "`Credential:Explicit credentials specified, deferring to use..." ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            write-verbose "get-TenantCredentials() return format: (emulating)" ;
+            $o365Cred = [ordered]@{
+                Cred=$Credential ;
+                credType=$null ;
+            } ;
+            $uRoleReturn = resolve-UserNameToUserRole -UserName $Credential.username -verbose:$($VerbosePreference -eq "Continue") ; # Username
+            write-verbose "w full cred opt: $uRoleReturn = resolve-UserNameToUserRole -Credential $Credential -verbose = $($VerbosePreference -eq 'Continue')"  ;
+            if($uRoleReturn.UserRole){
+                $o365Cred.credType = $uRoleReturn.UserRole ;
+            } else {
+                $smsg = "Unable to resolve `$credential.username ($($credential.username))"
+                $smsg += "`nto a usable 'UserRole' spec!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } #Error|Warn|Debug
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                throw $smsg ;
+                Break ;
+            } ;
+        } else {
+            if($MGCntxt.isConnected){
+                if($MgCntxt.isUser){
+                    $TenantTag = $TenOrg = get-TenantTag -Credential $MgCntxt.Account ;
+                    $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                    $credential = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue") ;
+                } elseif($MgCntxt.isCBA -AND $MgCntxt.AppName -match 'CBACert-(\w{3})'){
+                        #$MgCntxt.AppName.split('-')[-1]
+                        $TenantTag = $TenOrg = $matches[1]
+                        # also need credential
+                        $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
+                        write-verbose "ret'd obj:$uRoleReturn = [ordered]@{     UserRole = $null ;     Service = $null ;     TenOrg = $null ; } " ;
+                        $credRet = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue")
+                        $credential = $credRet.Cred ;
+                }else{
+                    $smsg = "UNABLE TO RESOLVE mgContext to a working TenOrg!" ;
+                    if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                    else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                }
+            } ;
+            $pltGTCred=@{TenOrg=$TenOrg ; UserRole=$null; verbose=$($verbose)} ;
+            if($UserRole){
+                $smsg = "(`$UserRole specified:$($UserRole -join ','))" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                $pltGTCred.UserRole = $UserRole;
+            } else {
+                $smsg = "(No `$UserRole found, defaulting to:'CSVC','SID' " ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                $pltGTCred.UserRole = 'CSVC','SID' ;
+            } ;
+            $smsg = "get-TenantCredentials w`n$(($pltGTCred|out-string).trim())" ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level verbose }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            $o365Cred = get-TenantCredentials @pltGTCred
+        } ;
+        if($o365Cred.credType -AND $o365Cred.Cred -AND $o365Cred.Cred.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+            $smsg = "(validated `$o365Cred contains .credType:$($o365Cred.credType) & `$o365Cred.Cred.username:$($o365Cred.Cred.username)" ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            write-verbose "populate $credential with return, if not populated (may be required for follow-on calls that pass common $Credentials through)" ;
+            if((gv Credential) -AND $Credential -eq $null){
+                $credential = $o365Cred.Cred ;
+            }elseif($credential.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+                $smsg = "(`$Credential is properly populated; explicit -Credential was in initial call)" ;
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            } else {
+                $smsg = "`$Credential is `$NULL, AND $o365Cred.Cred is unusable to populate!" ;
+                $smsg = "downstream commands will *not* properly pass through usable credentials!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                throw $smsg ;
+                break ;
+            } ;
+        } else {
+            $smsg = "UNABLE TO RESOLVE FUNCTIONAL CredType/UserRole from specified explicit -Credential:$($Credential.username)!" ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+            else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            break ;
+        } ;
+        $pltCMG = [ordered]@{
+            Credential = $Credential ;
+            verbose = $($VerbosePreference -eq "Continue")  ;
+        } ;
+        if((get-command Connect-MG).Parameters.keys -contains 'silent'){
+            $pltCMG.add('Silent',$silent) ;
+        } ;
+        #endregion cMG_SCAFFOLD ; #*------^ END cMG_SCAFFOLD ^------
+            
+        $pltCMG = [ordered]@{
+            Credential = $Credential ;
+            verbose = $($VerbosePreference -eq "Continue")  ;
+        } ;
+        if((get-command Connect-MG).Parameters.keys -contains 'silent'){
+            $pltCMG.add('Silent',$silent) ;
+        } ;
+        if((get-command Connect-MG).Parameters.keys -contains 'NoWelcome'){
+            $pltCMG.add('NoWelcome',$true) ;
+        } ;
+        #endregion cMG_SCAFFOLD ; #*------^ END cMG_SCAFFOLD ^------
+        #Connect-MgGraph -Scopes "Organization.Read.All" -NoWelcome # suppress the banner, or it dumps it into the pipeline!
+        $pltCMG.add('Scopes', "Organization.Read.All" ) ;
+        #9:42 AM 1/12/2026 cmggraph has -scopes param, but connect-mg uses RequiredScopes - should Alias it
+
+        #$LastDirSyncTime = (Get-MsolCompanyInformation).LastDirSyncTime ;
+        #$LastDirSyncTime = (Get-AzureADTenantDetail).CompanyLastDirSyncTime ;
+        connect-MG @pltCMG ; 
+        $pltCMG.silent = $true ; 
+        $LastDirSyncTime = Get-MgOrganization | select -expand OnPremisesLastSyncDateTime
+    }
+    PROCESS{        
+    } ; 
+    END{
+        New-Object PSObject -Property @{
+          TimeGMT   = $LastDirSyncTime  ;
+          TimeLocal = $LastDirSyncTime.ToLocalTime() ;
+        } | write-output ;        
+    } ; 
+
 }
 
 #*------^ get-MGOPLastSync.ps1 ^------
@@ -4205,6 +4449,7 @@ function toggle-MGUDLicense{
     AddedWebsite:	URL
     AddedTwitter:	URL
     REVISIONS
+    * 10:48 AM 1/19/2026 bugfix: $pltCcOPSvcs.UserRole (postfilter, not match test)
     * 1:28 PM 1/7/2026 WIP unupdated port from toggle-AADLicense -> toggle-MGUDLicense
     .DESCRIPTION
     .PARAMETER  User
@@ -4869,7 +5114,7 @@ function toggle-MGUDLicense{
                 #UserRole = $UserRole ; # @('SID','ESVC') ;
                 # if inheriting same $userrole param/default, that was already used for cloud conn, filter out the op unsupported CBA roles
                 # exclude csvc as well, go with filter on the supported ValidateSet from get-HybridOPCredentials: ESVC|LSVC|SID
-                UserRole = ($UserRole -match '(ESVC|LSVC|SID)' -notmatch 'CBA') ; # @('SID','ESVC') ;
+                UserRole = $UserRole |?{$_ -match '(ESVC|LSVC|SID)' -AND $_ -notmatch 'CBA'} ;  # @('SID','ESVC') ;
                 # svcAcct use: @('ESvcCBA','CSvcCBA','SIDCBA')
                 silent = $silent ;
             } ;
@@ -5275,40 +5520,179 @@ Function Wait-MGOPSync {
     Website:	http://tinstoys.blogspot.com
     Twitter:	http://twitter.com/tostka
     REVISIONS   :
+    * 2:02 PM 1/16/2026 wasn't picking up default CBA creds -> pasted in latest begin block & scaffold from remove-exolicense()
     * 3:28 PM 1/6/2026 fixed ipmo mg ;  spliced in cmg scaff
     * 3:34 PM 1/5/2026 rpl AAD => EntraID strings
     * 11:03 AM 12/31/2025 port from verb-AAD\wait-AADSync to Microsoft.Graph (fu M$) -> verb-MG\Wait-MGOPSync()
     .DESCRIPTION
     Wait-MGOPSync - Dawdle loop for notifying on next AD-EntraID AD sync (Microsoft.Graph)
+    .PARAMETER TenOrg
+    TenantTag value, indicating Tenants to connect to[-TenOrg 'TOL']
+    .PARAMETER useEXOv2
+    Use EXOv2 (ExchangeOnlineManagement) over basic auth legacy connection [-useEXOv2]
     .PARAMETER Credential
-    Credential to be used for connection
+    Use specific Credentials (defaults to Tenant-defined SvcAccount)[-Credentials [credential object]]
+    .PARAMETER UserRole
+    Credential User Role spec (SID|CSID|UID|B2BI|CSVC)[-UserRole SID]    
+    .PARAMETER silent
+    Switch to specify suppression of all but warn/error echos.(unimplemented, here for cross-compat)
     .INPUTS
     None. Does not accepted piped input.
     .OUTPUTS
     Returns an object with LastDirSyncTime, expressed as TimeGMT & TimeLocal
     .EXAMPLE
-    Wait-MGOPSync
+    PS> Wait-MGOPSync
+
+        14:18:27:Waiting for next AD-> EntraID Dirsync:
+        (prior:01/16/2026 14:09:25)
+        [..]
+        (01/16/2026 14:09:25):AD->EntraID REPLICATED
+
     .LINK
+    https://github.com/tostka/verb-mg
     #>
     Param(
-        #[Parameter()]$Credential = $global:credo365TORSID
-        # no supported cred param
+        [Parameter(Mandatory=$FALSE,HelpMessage="TenantTag value, indicating Tenants to connect to[-TenOrg 'TOL']")]
+            [ValidateNotNullOrEmpty()]
+            #[ValidatePattern("^\w{3}$")]
+            [string]$TenOrg = $global:o365_TenOrgDefault,
+        [Parameter(HelpMessage="Use EXOv2 (ExchangeOnlineManagement) over basic auth legacy connection [-useEXOv2]")]
+            [switch] $useEXOv2=$true,
+        [Parameter(Mandatory = $false, HelpMessage = "Use specific Credentials (defaults to Tenant-defined SvcAccount)[-Credentials [credential object]]")]
+            [System.Management.Automation.PSCredential]$Credential,
+        [Parameter(Mandatory = $false, HelpMessage = "Credential User Role spec (SID|CSID|UID|B2BI|CSVC|ESVC|LSVC|ESvcCBA|CSvcCBA|SIDCBA)[-UserRole @('SIDCBA','SID','CSVC')]")]
+            # sourced from get-admincred():#182: $targetRoles = 'SID', 'CSID', 'ESVC','CSVC','UID','ESvcCBA','CSvcCBA','SIDCBA' ; 
+            #[ValidateSet("SID","CSID","UID","B2BI","CSVC","ESVC","LSVC","ESvcCBA","CSvcCBA","SIDCBA")]
+            # pulling the pattern from global vari w friendly err
+            [ValidateScript({
+                if(-not $rgxPermittedUserRoles){$rgxPermittedUserRoles = '(SID|CSID|UID|B2BI|CSVC|ESVC|LSVC|ESvcCBA|CSvcCBA|SIDCBA)'} ;
+                if(-not ($_ -match $rgxPermittedUserRoles)){throw "'$($_)' doesn't match `$rgxPermittedUserRoles:`n$($rgxPermittedUserRoles.tostring())" ; } ; 
+                return $true ; 
+            })]
+            [string[]]$UserRole = @('ESvcCBA','CSvcCBA','SIDCBA','SID'),
+        [Parameter(HelpMessage="Silent output (suppress status echos)[-silent]")]
+            [switch] $silent
     ) ; 
     BEGIN{
+        #region CONSTANTS_AND_ENVIRO #*======v CONSTANTS-AND-ENVIRO v======
+        # function self-name (equiv to script's: $MyInvocation.MyCommand.Path) ;
+        ${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name ;
+        $Verbose = ($VerbosePreference -eq 'Continue') ;
+        # Get parameters this function was invoked with
+        $PSParameters = New-Object -TypeName PSObject -Property $PSBoundParameters ;
+        $smsg = "(ParameterSetName $($PSCmdlet.ParameterSetName) is in effect)" ;
+        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug
+        else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+
+        #region LOCAL_CONSTANTS ; #*------v LOCAL_CONSTANTS v------
+
+        #endregion LOCAL_CONSTANTS ; #*------^ END LOCAL_CONSTANTS ^------
+         <#
+        # recycling the inbound above into next call in the chain
+        # downstream commands
+        $pltRXO = [ordered]@{
+            Credential = $Credential ;
+            verbose = $($VerbosePreference -eq "Continue")  ;
+        } ;
+        #>
+        # 9:26 AM 6/17/2024 this needs cred resolution splice over latest get-exomailboxlicenses
+        $o365Cred = $null ;
+        if($Credential){
+            $smsg = "`Credential:Explicit credentials specified, deferring to use..." ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+            else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            #Levels:Error|Warn|Info|H1|H2|H3|H4|H5|Debug|Verbose|Prompt|Success
+                # get-TenantCredentials() return format: (emulating)
+                $o365Cred = [ordered]@{
+                Cred=$Credential ;
+                credType=$null ;
+            } ;
+            $uRoleReturn = resolve-UserNameToUserRole -UserName $Credential.username -verbose:$($VerbosePreference -eq "Continue") ; # Username
+            #$uRoleReturn = resolve-UserNameToUserRole -Credential $Credential -verbose = $($VerbosePreference -eq "Continue") ;   # full Credential support
+            if($uRoleReturn.UserRole){
+                $o365Cred.credType = $uRoleReturn.UserRole ;
+            } else {
+                $smsg = "Unable to resolve `$credential.username ($($credential.username))"
+                $smsg += "`nto a usable 'UserRole' spec!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN } #Error|Warn|Debug
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                throw $smsg ;
+                Break ;
+            } ;
+        } else {
+            $pltGTCred=@{TenOrg=$TenOrg ; UserRole=$null; verbose=$($verbose)} ;
+            if($UserRole){
+                $smsg = "(`$UserRole specified:$($UserRole -join ','))" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                $pltGTCred.UserRole = $UserRole;
+            } else {
+                $smsg = "(No `$UserRole found, defaulting to:'CSVC','SID' " ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
+                else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                #Levels:Error|Warn|Info|H1|H2|H3|H4|H5|Debug|Verbose|Prompt|Success
+                $pltGTCred.UserRole = 'CSVC','SID' ;
+            } ;
+            $smsg = "get-TenantCredentials w`n$(($pltGTCred|out-string).trim())" ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level verbose }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            $o365Cred = get-TenantCredentials @pltGTCred
+        } ;
+        if($o365Cred.credType -AND $o365Cred.Cred -AND $o365Cred.Cred.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+            $smsg = "(validated `$o365Cred contains .credType:$($o365Cred.credType) & `$o365Cred.Cred.username:$($o365Cred.Cred.username)" ;
+            if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
+            else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
+            # 9:58 AM 6/13/2024 populate $credential with return, if not populated (may be required for follow-on calls that pass common $Credentials through)
+            if((gv Credential) -AND $Credential -eq $null){
+                $credential = $o365Cred.Cred ;
+            }elseif($credential.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
+                $smsg = "(`$Credential is properly populated; explicit -Credential was in initial call)" ; 
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+            } else {
+                $smsg = "`$Credential is `$NULL, AND $o365Cred.Cred is unusable to populate!" ;
+                $smsg = "downstream commands will *not* properly pass through usable credentials!" ;
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                throw $smsg ;
+                break ;
+            } ;
+        } else {
+            $smsg = "UNABLE TO RESOLVE FUNCTIONAL CredType/UserRole from specified explicit -Credential:$($Credential.username)!" ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+            else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            break ;
+        } ; 
+
+        # downstream commands
+        $pltRXO = [ordered]@{
+            Credential = $Credential ;
+            verbose = $($VerbosePreference -eq "Continue")  ;
+        } ;
+        if((get-command Reconnect-EXO).Parameters.keys -contains 'silent'){
+            $pltRxo.add('Silent',$silent) ;
+        } ;
+        # default connectivity cmds - force silent false
+        $pltRXOC = [ordered]@{} ; $pltRXO.GetEnumerator() | ?{ $_.Key -notmatch 'silent' }  | ForEach-Object { $pltRXOC.Add($_.Key, $_.Value) } ; $pltRXOC.Add('silent',$true) ; 
+        if((get-command Reconnect-EXO).Parameters.keys -notcontains 'silent'){
+            $pltRxo.remove('Silent') ;
+        } ; 
+
+        # 2:37 PM 1/7/2026 mg support
         #region cMG_SCAFFOLD ; #*------v cMG_SCAFFOLD v------
         if(-not (get-command  test-mgconnection)){
             if(-not (get-module -list Microsoft.Graph -ea 0)){
-                $smsg = "MISSING Microsoft.Graph!" ; 
+                $smsg = "MISSING Microsoft.Graph!" ;
                 $smsg += "`nUse: install-module Microsoft.Graph -scope CurrentUser" ;
-                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
-                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
-            } ;             
+                if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
+                else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+            } ;
         } ;
         $MGCntxt = test-mgconnection -Verbose:($VerbosePreference -eq 'Continue') ;
         $o365Cred = $null ;
         if($Credential -AND $MGCntxt.isConnected){
-            $smsg = "Explicit -Credential:$($Credential.username) -AND `$MGCntxt.isConnected: running pre:Disconnect-MgGraph" ; 
-            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+            $smsg = "Explicit -Credential:$($Credential.username) -AND `$MGCntxt.isConnected: running pre:Disconnect-MgGraph" ;
+            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
             else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
             # Dmg returns a get-mgcontext into pipe, if you don't cap it corrupts the pipe on your current flow
             $dOut = Disconnect-MgGraph -Verbose:($VerbosePreference -eq 'Continue')
@@ -5318,13 +5702,13 @@ Function Wait-MGOPSync {
             $smsg = "`Credential:Explicit credentials specified, deferring to use..." ;
             if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info }
             else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-            write-verbose "get-TenantCredentials() return format: (emulating)" ; 
+            write-verbose "get-TenantCredentials() return format: (emulating)" ;
             $o365Cred = [ordered]@{
                 Cred=$Credential ;
                 credType=$null ;
             } ;
             $uRoleReturn = resolve-UserNameToUserRole -UserName $Credential.username -verbose:$($VerbosePreference -eq "Continue") ; # Username
-            write-verbose "w full cred opt: $uRoleReturn = resolve-UserNameToUserRole -Credential $Credential -verbose = $($VerbosePreference -eq 'Continue')"  ; 
+            write-verbose "w full cred opt: $uRoleReturn = resolve-UserNameToUserRole -Credential $Credential -verbose = $($VerbosePreference -eq 'Continue')"  ;
             if($uRoleReturn.UserRole){
                 $o365Cred.credType = $uRoleReturn.UserRole ;
             } else {
@@ -5346,7 +5730,7 @@ Function Wait-MGOPSync {
                         $TenantTag = $TenOrg = $matches[1]
                         # also need credential
                         $uRoleReturn = resolve-UserNameToUserRole -UserName $MgCntxt.CertificateThumbprint -verbose:$($VerbosePreference -eq "Continue") ;
-                        write-verbose "ret'd obj:$uRoleReturn = [ordered]@{     UserRole = $null ;     Service = $null ;     TenOrg = $null ; } " ;  
+                        write-verbose "ret'd obj:$uRoleReturn = [ordered]@{     UserRole = $null ;     Service = $null ;     TenOrg = $null ; } " ;
                         $credRet = get-TenantCredentials -TenOrg $TenOrg -UserRole $uRoleReturn.UserRole -verbose:$($VerbosePreference -eq "Continue")
                         $credential = $credRet.Cred ;
                 }else{
@@ -5354,7 +5738,7 @@ Function Wait-MGOPSync {
                     if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
                     else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
                 }
-            } ; 
+            } ;
             $pltGTCred=@{TenOrg=$TenOrg ; UserRole=$null; verbose=$($verbose)} ;
             if($UserRole){
                 $smsg = "(`$UserRole specified:$($UserRole -join ','))" ;
@@ -5376,13 +5760,13 @@ Function Wait-MGOPSync {
             $smsg = "(validated `$o365Cred contains .credType:$($o365Cred.credType) & `$o365Cred.Cred.username:$($o365Cred.Cred.username)" ;
             if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
             else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
-            write-verbose "populate $credential with return, if not populated (may be required for follow-on calls that pass common $Credentials through)" ; 
+            write-verbose "populate $credential with return, if not populated (may be required for follow-on calls that pass common $Credentials through)" ;
             if((gv Credential) -AND $Credential -eq $null){
                 $credential = $o365Cred.Cred ;
             }elseif($credential.gettype().fullname -eq 'System.Management.Automation.PSCredential'){
-                $smsg = "(`$Credential is properly populated; explicit -Credential was in initial call)" ; 
-                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
-                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                $smsg = "(`$Credential is properly populated; explicit -Credential was in initial call)" ;
+                if($verbose){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE }
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ;
             } else {
                 $smsg = "`$Credential is `$NULL, AND $o365Cred.Cred is unusable to populate!" ;
                 $smsg = "downstream commands will *not* properly pass through usable credentials!" ;
@@ -5396,13 +5780,25 @@ Function Wait-MGOPSync {
             if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent}
             else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
             break ;
-        } ;         
+        } ;
         $pltCMG = [ordered]@{
             Credential = $Credential ;
             verbose = $($VerbosePreference -eq "Continue")  ;
         } ;
         if((get-command Connect-MG).Parameters.keys -contains 'silent'){
             $pltCMG.add('Silent',$silent) ;
+        } ;
+        #endregion cMG_SCAFFOLD ; #*------^ END cMG_SCAFFOLD ^------
+            
+        $pltCMG = [ordered]@{
+            Credential = $Credential ;
+            verbose = $($VerbosePreference -eq "Continue")  ;
+        } ;
+        if((get-command Connect-MG).Parameters.keys -contains 'silent'){
+            $pltCMG.add('Silent',$silent) ;
+        } ;
+        if((get-command Connect-MG).Parameters.keys -contains 'NoWelcome'){
+            $pltCMG.add('NoWelcome',$true) ;
         } ;
         #endregion cMG_SCAFFOLD ; #*------^ END cMG_SCAFFOLD ^------
         #Connect-MgGraph -Scopes "Organization.Read.All" -NoWelcome # suppress the banner, or it dumps it into the pipeline!
@@ -5412,11 +5808,17 @@ Function Wait-MGOPSync {
         #$LastDirSyncTime = (Get-MsolCompanyInformation).LastDirSyncTime ;
         #$LastDirSyncTime = (Get-AzureADTenantDetail).CompanyLastDirSyncTime ;
         connect-MG @pltCMG ; 
+        $pltCMG.silent = $true ; 
         $LastDirSyncTime = Get-MgOrganization | select -expand OnPremisesLastSyncDateTime
     }
     PROCESS{                
         write-host -foregroundcolor yellow "$((get-date).ToString('HH:mm:ss')):Waiting for next AD-> EntraID Dirsync:`n(prior:$($LastDirSyncTime.ToLocalTime()))`n[" ; 
-        Do {Connect-MgGraph -Scopes "Organization.Read.All" -NoWelcome  ; write-host "." -NoNewLine ; Start-Sleep -m (1000 * 5) } Until ((Get-MgOrganization).OnPremisesLastSyncDateTime -ne $LastDirSyncTime) ;
+        Do {
+            # this is what's triggering the no cred connect, replace it
+            #Connect-MgGraph -Scopes "Organization.Read.All" -NoWelcome  ; 
+            connect-MG @pltCMG ; 
+            write-host "." -NoNewLine ; Start-Sleep -m (1000 * 5) 
+        } Until ((Get-MgOrganization).OnPremisesLastSyncDateTime -ne $LastDirSyncTime) ;
     } ; 
     END{
         $LatestNewSync = (Get-MgOrganization).OnPremisesLastSyncDateTime ; 
@@ -5427,8 +5829,7 @@ Function Wait-MGOPSync {
         write-host -foregroundcolor yellow "]`n$((get-date).ToString('HH:mm:ss')):AD->EntraID REPLICATED!" ; 
         write-host "`a" ; write-host "`a" ; write-host "`a" ;
     } ; 
-} ; #*------^ END Function Wait-MGOPSync ^------
-if(!(get-alias Wait-MSolSync -ea 0 )) {Set-Alias -Name 'wait-MSolSync' -Value 'Wait-MGOPSync' ; }
+}
 
 #*------^ Wait-MGOPSync.ps1 ^------
 
@@ -5443,8 +5844,8 @@ Export-ModuleMember -Function add-MGUserLicense,connect-MG,push-TLSLatest,get-MG
 # SIG # Begin signature block
 # MIIELgYJKoZIhvcNAQcCoIIEHzCCBBsCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULmCYVvpXP60wTsl2WLy+Iy+o
-# LSSgggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmqVol6CtRzjmUEq+HNRiTzkt
+# sa+gggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
 # MCwxKjAoBgNVBAMTIVBvd2VyU2hlbGwgTG9jYWwgQ2VydGlmaWNhdGUgUm9vdDAe
 # Fw0xNDEyMjkxNzA3MzNaFw0zOTEyMzEyMzU5NTlaMBUxEzARBgNVBAMTClRvZGRT
 # ZWxmSUkwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBALqRVt7uNweTkZZ+16QG
@@ -5459,9 +5860,9 @@ Export-ModuleMember -Function add-MGUserLicense,connect-MG,push-TLSLatest,get-MG
 # AWAwggFcAgEBMEAwLDEqMCgGA1UEAxMhUG93ZXJTaGVsbCBMb2NhbCBDZXJ0aWZp
 # Y2F0ZSBSb290AhBaydK0VS5IhU1Hy6E1KUTpMAkGBSsOAwIaBQCgeDAYBgorBgEE
 # AYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwG
-# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQvWOMF
-# 6l2FURgGa2Fe9OBqUf9ChjANBgkqhkiG9w0BAQEFAASBgAC2CTWFWg+ywaoO4kvE
-# RokM5pIVni+L9iKc/rPNOh3gA9N/J9nOTS5WCIWVNvefHPsIdcIm7QpQTpYoBOvP
-# wmlwFBqG3QEYRgRF9FbwGeVy4OfpzCQzRa4IX1g82FtnfqNtEtH3jObv/69xahTb
-# BIjQkde0+vHAqramUKr9+GHC
+# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTwxvzI
+# DynLQsavd8XCHHdDBkbgZDANBgkqhkiG9w0BAQEFAASBgGM8OXSt1g0pLxJ2RUdN
+# 6VTJIduCAKQPfuwsLaW9zcsjXV4p0fP/5FD/m9v8r7W0USuUn8yvtPmkbTpHQqT1
+# uJlgxhFG1qUf/MsfS5vz4Z/n9YgHqPM6LSuAHzomxqO6CakE+bUQnXJYNmNotdLt
+# gGahoV2mc4TC0mn2RXH7v3l7
 # SIG # End signature block

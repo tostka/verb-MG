@@ -18,6 +18,7 @@ function toggle-MGUDLicense{
     AddedWebsite:	URL
     AddedTwitter:	URL
     REVISIONS
+    * 10:48 AM 1/19/2026 bugfix: $pltCcOPSvcs.UserRole (postfilter, not match test)
     * 1:28 PM 1/7/2026 WIP unupdated port from toggle-AADLicense -> toggle-MGUDLicense
     .DESCRIPTION
     .PARAMETER  User
@@ -682,7 +683,7 @@ function toggle-MGUDLicense{
                 #UserRole = $UserRole ; # @('SID','ESVC') ;
                 # if inheriting same $userrole param/default, that was already used for cloud conn, filter out the op unsupported CBA roles
                 # exclude csvc as well, go with filter on the supported ValidateSet from get-HybridOPCredentials: ESVC|LSVC|SID
-                UserRole = ($UserRole -match '(ESVC|LSVC|SID)' -notmatch 'CBA') ; # @('SID','ESVC') ;
+                UserRole = $UserRole |?{$_ -match '(ESVC|LSVC|SID)' -AND $_ -notmatch 'CBA'} ;  # @('SID','ESVC') ;
                 # svcAcct use: @('ESvcCBA','CSvcCBA','SIDCBA')
                 silent = $silent ;
             } ;
