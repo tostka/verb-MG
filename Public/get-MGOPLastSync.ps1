@@ -8,6 +8,7 @@ Function get-MGOPLastSync {
     Website     :	https://www.toddomation.com
     Twitter     :	@tostka
     REVISIONS   :
+    * 2:48 PM 3/19/2026 default $silent=$true ; 
     * 2:05 PM 1/16/2026 port from verb-AAD\wait-AADSync to Microsoft.Graph (fu M$) -> verb-MG\Wait-MGOPSync()
     .DESCRIPTION
     get-MGOPLastSync - Get specific Tenant/Org's last AD-MG sync (MGGraph)
@@ -53,7 +54,7 @@ Function get-MGOPLastSync {
             })]
             [string[]]$UserRole = @('ESvcCBA','CSvcCBA','SIDCBA','SID'),
         [Parameter(HelpMessage="Silent output (suppress status echos)[-silent]")]
-            [switch] $silent
+            [switch] $silent = $true
     ) ; 
     BEGIN{
         #region CONSTANTS_AND_ENVIRO #*======v CONSTANTS-AND-ENVIRO v======
