@@ -20,6 +20,7 @@ Function connect-MG {
     AddedWebsite:	URL
     AddedTwitter:	URL
     REVISIONS   :
+    * 2:52 PM 3/13/2026 defaulted -silent true
     * 2:14 PM 1/16/2026 add -noWelcome support (as variant of -silent block)
     * 1:01 PM 1/12/2026 revised connect rpt to put key bits, and then details add: dyn get-mgcontext props expansion, for outputs (acct v cba, only relevent in output)
     * 3:24 PM 1/6/2026 fixed cbh, don't ipmo MG! ; WORKING, added CBH demo call scaffold for use in all calling dep scripts
@@ -224,7 +225,7 @@ Function connect-MG {
         [Parameter(HelpMessage="Hides the welcome message.[-NoWelcome]")]
             [switch] $NoWelcome,
         [Parameter(HelpMessage="Silent output (suppress status echos)[-silent]")]
-            [switch] $silent
+            [switch] $silent = $true 
     ) ;
     BEGIN {        
         #region PUSH_TLSLATEST ; #*------v push-TLSLatest v------
