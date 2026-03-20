@@ -5,7 +5,7 @@
   .SYNOPSIS
   verb-MG - MS Graph module-related functions
   .NOTES
-    Version     : 3.0.0
+    Version     : 3.1.0
   Author      : Todd Kadrie
   Website     :	https://www.toddomation.com
   Twitter     :	@tostka
@@ -18,7 +18,7 @@
   AddedWebsite:	REFERENCEURL
   AddedTwitter:	@HANDLE / http://twitter.com/HANDLE
   REVISIONS
-  * 5/14/2025 - 3.0.0.0
+  * 5/14/2025 - 3.1.0.0
   .DESCRIPTION
   verb-MG - MS Graph module-related functions
   .PARAMETER  PARAMNAME
@@ -2694,7 +2694,7 @@ function get-MgUserFull{
                                 Headers:
                                 Transfer-Encoding             : chunked
                                 Vary                          : Accept-Encoding
-                                Strict-Transport-Security     : max-age=31536000
+                                Strict-Transport-Security     : max-age=3153.1.0
                                 request-id                    : 9a99a999-aaa9-99aa-aa99-9999aaa9a999
                                 client-request-id             : 99a9a999-99a9-99a9-9999-a99a99999a99
                                 x-ms-ags-diagnostic           : {"ServerInfo":{"DataCenter":"Central US","Slice":"E","Ring":"4","ScaleUnit":"006","RoleInstance":"DS1PEPF00040793"}}
@@ -6042,8 +6042,8 @@ Export-ModuleMember -Function add-MGUserLicense,connect-MG,push-TLSLatest,get-MG
 # SIG # Begin signature block
 # MIIELgYJKoZIhvcNAQcCoIIEHzCCBBsCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUMXaSfTFjfWZLH8ZHJrrTYaAA
-# Mj6gggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUpCxThfQyRsZuuH2h0g2hIVAe
+# B7+gggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
 # MCwxKjAoBgNVBAMTIVBvd2VyU2hlbGwgTG9jYWwgQ2VydGlmaWNhdGUgUm9vdDAe
 # Fw0xNDEyMjkxNzA3MzNaFw0zOTEyMzEyMzU5NTlaMBUxEzARBgNVBAMTClRvZGRT
 # ZWxmSUkwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBALqRVt7uNweTkZZ+16QG
@@ -6058,9 +6058,9 @@ Export-ModuleMember -Function add-MGUserLicense,connect-MG,push-TLSLatest,get-MG
 # AWAwggFcAgEBMEAwLDEqMCgGA1UEAxMhUG93ZXJTaGVsbCBMb2NhbCBDZXJ0aWZp
 # Y2F0ZSBSb290AhBaydK0VS5IhU1Hy6E1KUTpMAkGBSsOAwIaBQCgeDAYBgorBgEE
 # AYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwG
-# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQOCrwc
-# T7Iow2gjtAg6r0VARbh8yzANBgkqhkiG9w0BAQEFAASBgJUHdIapWkSDVA8so86j
-# HqOugUCsij5kctdP6niiWI5ZC+UeUtYZWk/lO/B+ZfxhVv3oZQivMm2ro92dWcUX
-# s/yrXZVOgblbMXYw3b8AD4HcmyrJA8WaJ8H/zp1lwZpuEOGfLq+nnTf80622739v
-# MKWYIzF+PwyknUDnfz0rMBh2
+# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQWcvze
+# V4ZueTDKGjU2nNVfaNFQ1jANBgkqhkiG9w0BAQEFAASBgFrqqtnxWfxCB5+0Q20u
+# xzFa2GEba3XmMc0Ut+Sahbvy58+LAAs1ULU3r0fyoWx82JyxpH9u5Vdb1E17Q92R
+# 4sU92uUOGK5Ln4T9PbZl2FsM+uNjPChx3EaVpYZwf+SY1CZwsibovnik5kR5NZ7w
+# +chRoeTmSGzWY8eRnfQgV3Wj
 # SIG # End signature block

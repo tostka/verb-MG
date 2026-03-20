@@ -174,7 +174,6 @@ get-MGOPLastSync:ob
 get-MGOPLastSync:PipelineVariable
 get-MGOPLastSync:pv
 get-MgUserFull:UserID
-get-MgUserFull:Filter
 get-MgUserFull:Verbose
 get-MgUserFull:vb
 get-MgUserFull:Debug
@@ -286,7 +285,6 @@ set-MGUserUsageLocation:PipelineVariable
 set-MGUserUsageLocation:pv
 test-MGConnectionTDOTDO:TenantID
 test-MGConnectionTDOTDO:RequiredScopes
-test-MGConnectionTDOTDO:silent
 test-MGConnectionTDOTDO:Verbose
 test-MGConnectionTDOTDO:vb
 test-MGConnectionTDOTDO:Debug

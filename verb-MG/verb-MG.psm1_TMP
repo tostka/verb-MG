@@ -5,7 +5,7 @@
   .SYNOPSIS
   verb-MG - MS Graph module-related functions
   .NOTES
-    Version     : 3.0.0
+    Version     : 3.1.0
   Author      : Todd Kadrie
   Website     :	https://www.toddomation.com
   Twitter     :	@tostka
@@ -18,7 +18,7 @@
   AddedWebsite:	REFERENCEURL
   AddedTwitter:	@HANDLE / http://twitter.com/HANDLE
   REVISIONS
-  * 5/14/2025 - 3.0.0.0
+  * 5/14/2025 - 3.1.0.0
   .DESCRIPTION
   verb-MG - MS Graph module-related functions
   .PARAMETER  PARAMNAME
@@ -2694,7 +2694,7 @@ function get-MgUserFull{
                                 Headers:
                                 Transfer-Encoding             : chunked
                                 Vary                          : Accept-Encoding
-                                Strict-Transport-Security     : max-age=31536000
+                                Strict-Transport-Security     : max-age=3153.1.0
                                 request-id                    : 9a99a999-aaa9-99aa-aa99-9999aaa9a999
                                 client-request-id             : 99a9a999-99a9-99a9-9999-a99a99999a99
                                 x-ms-ags-diagnostic           : {"ServerInfo":{"DataCenter":"Central US","Slice":"E","Ring":"4","ScaleUnit":"006","RoleInstance":"DS1PEPF00040793"}}
