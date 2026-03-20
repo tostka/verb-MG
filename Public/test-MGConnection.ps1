@@ -90,6 +90,8 @@ Function test-MGConnectionTDOTDO {
     Target TenantID (used for confirmation matching)[-TenantID '999999aa-a99a-99a9-9aaa-99a9a99aa99a']
     .PARAMETER RequiredScopes
     Scopes required for planned cmdlets to be executed[-RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]
+    .PARAMETER silent
+    Switch to suppress all non-error echos
     .INPUTS
     None. Does not accepted piped input.
     .OUTPUTS
@@ -117,7 +119,9 @@ Function test-MGConnectionTDOTDO {
         [Parameter(Position=0,Mandatory=$false,HelpMessage="Target TenantID (used for confirmation matching)[-TenantID '999999aa-a99a-99a9-9aaa-99a9a99aa99a']")]
             $TenantID = $tormeta.o365_TenantID,
         [Parameter(Mandatory=$false,HelpMessage="Scopes required for planned cmdlets to be executed[-RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]")]
-            [array]$RequiredScopes
+            [array]$RequiredScopes,
+        [Parameter(HelpMessage="Silent output (suppress status echos)[-silent]")]
+            [switch] $silent
     ) ;
     BEGIN{
         $verbose = ($VerbosePreference -eq "Continue") ; 
