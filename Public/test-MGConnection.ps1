@@ -20,6 +20,7 @@ Function test-MGConnectionTDOTDO {
     AddedWebsite: URL
     AddedTwitter: URL    
     REVISIONS   :
+    * 4:10 PM 3/19/2026 fixed bug misnammed context variable, updated requiredscopoes tests, rebuilt output to be comma-quote delimited.
     * 4:26 PM 12/30/2025 init
     .DESCRIPTION
     test-MGConnectionTDO - Test Microsoft.Graph connection status. Wraps Microsoft.Graph\get-MGContext command to return properties of connection (or nothing if disconnected). Returns summary object with status evaluated.
@@ -188,9 +189,11 @@ Function test-MGConnectionTDOTDO {
             if($RequiredScopes){
                 [array]$ScopesNotFound = @() ; 
                 [array]$ScopesNeeded = @() ; 
-                ForEach ($Scope in $RequiredScopes){If ($Scope -notin $Context.Scopes) {$ScopesNotFound += $Scope}}
+                #ForEach ($Scope in $RequiredScopes){If ($Scope -notin $mgCS.Scopes) {$ScopesNotFound += $Scope}}
+                ForEach ($Scope in $RequiredScopes){If ($mgCS.Scopes -contains $Scope ){}else{$ScopesNotFound += $Scope}}
                 If ($ScopesNotFound){
-                    $ScopesNeeded = $ScopesNotFound -join ", "
+                    #$ScopesNeeded = $ScopesNotFound -join ","
+                     $ScopesNeeded = "'$($scopesnotfound -join "','")'"
                     $smsg = ("The following scopes are not available: {0}" -f ($ScopesNeeded -join ", "))
                     <# reconn code that would add the missing
                     Try {
@@ -201,7 +204,8 @@ Function test-MGConnectionTDOTDO {
                         Break
                     }
                     #>
-                    $smsg += "`nThe following command can be run to request the missing scopes:`n Connect-MgGraph -Scopes $(($ScopesNeeded -join ',')) -NoWelcome -ErrorAction Stop" ;
+                    $smsg += "`nThe following command can be run to request the missing scopes:`n Connect-MgGraph -Scopes $($ScopesNeeded) -NoWelcome -ErrorAction Stop" ;
+                    $smsg += "`nOR:`n Connect-Mg -RequiredScopes $($ScopesNeeded) -NoWelcome -ErrorAction Stop" ; ;
                     write-warning $smsg ; 
                     $oRet.hasRequiredScopes = $false
                     $oRet.missingScopes = $ScopesNeeded ; 
