@@ -20,6 +20,7 @@ Function connect-MG {
     AddedWebsite:	URL
     AddedTwitter:	URL
     REVISIONS   :
+    * 2:31 PM 3/20/2026 ; add -ContextScope support, fixed no-connect resolution of $prpPopd ; fixed logic for REquiredScopes support, also *should* permit $Credential - doesn't use it, but implies guid-pikcker nonCBA 
     * 2:52 PM 3/13/2026 defaulted -silent true
     * 2:14 PM 1/16/2026 add -noWelcome support (as variant of -silent block)
     * 1:01 PM 1/12/2026 revised connect rpt to put key bits, and then details add: dyn get-mgcontext props expansion, for outputs (acct v cba, only relevent in output)
@@ -35,8 +36,8 @@ Function connect-MG {
     Scopes required for planned cmdlets to be executed[-RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]
     .PARAMETER DefaultScopes
     Fall-back Scopes for non-AppID, _Credential_ connections (defaults to working SID user/exo /domain/license mgmt roles)[-DefaultScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]
-    .PARAMETER RequiredScopes
-    Scopes required for planned cmdlets to be executed[-RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]
+    .PARAMETER ContextScope
+    Determines the scope of authentication context. This accepts `Process` for the current process, or `CurrentUser` for all sessions started by user.
     .PARAMETER Path
     Path to script/module file to be parsed for matching cmdlets[-Path path-to\script.ps1]
     .PARAMETER scriptblock
@@ -194,6 +195,10 @@ Function connect-MG {
         [Parameter(Mandatory=$False,HelpMessage="Scopes required for planned cmdlets to be executed[-RequiredScopes @('User.Read.All', 'Group.Read.All', 'Domain.Read.All')]")]
             [Alias('scopes')] # alias the connect-mggraph underlying param, for passthru
             [array]$RequiredScopes,
+        #-ContextScope <ContextScope>         Determines the scope of authentication context. This accepts `Process` for the current process, or `CurrentUser` for all sessions         started by user.
+        [Parameter(Mandatory = $false, HelpMessage = "Determines the scope of authentication context. This accepts `Process` for the current process, or `CurrentUser` for all sessions started by user.[-ContextScope Process)]")]
+            [ValidateSet('Process','CurrentUser')]
+            [string]$ContextScope,
         [Parameter(Mandatory = $false, HelpMessage = "Credential User Role spec (SID|CSID|UID|B2BI|CSVC|ESVC|LSVC|ESvcCBA|CSvcCBA|SIDCBA)[-UserRole @('SIDCBA','SID','CSVC')]")]
             # sourced from get-admincred():#182: $targetRoles = 'SID', 'CSID', 'ESVC','CSVC','UID','ESvcCBA','CSvcCBA','SIDCBA' ; 
             #[ValidateSet("SID","CSID","UID","B2BI","CSVC","ESVC","LSVC","ESvcCBA","CSvcCBA","SIDCBA")]
@@ -261,8 +266,6 @@ Function connect-MG {
             } ; 
         } ; 
         #endregion PUSH_TLSLATEST ; #*------^ END push-TLSLatest ^------
-        
-        
         push-TLSLatest
         $Verbose = [boolean]($VerbosePreference -eq 'Continue') ;
         #region CONSTANTS_AND_ENVIRO ; #*======v CONSTANTS_AND_ENVIRO v======
@@ -394,6 +397,13 @@ Function connect-MG {
                 else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
                 $pltCMG.add('NoWelcome',$true) ; 
             } ; 
+            if($ContextScope){
+                $smsg = "-ContextScope: $($ContextScope) adding to connect-mggraph splat" ; 
+                if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
+                else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
+                $pltCMG.add('ContextScope',$ContextScope) ; 
+            } ; 
+
             # defer to resolve-UserNameToUserRole -Credential $Credential
             $uRoleReturn = resolve-UserNameToUserRole -Credential $Credential ;
             if($credential.username -match $rgxCertThumbprint){
@@ -449,7 +459,11 @@ Function connect-MG {
                     #$smsg = "MULTIPLE CONTEXTS RETURNED!`n$(( ($MGCntxt) | ft -a  TenantId,UserId,LoginType |out-string).trim())" ; 
                     $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ; 
                     $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ; 
-                    $smsg = "MULTIPLE CONTEXTS RETURNED!`n$(($MGCntxt | fl $prpPopd|out-string).trim())" ;  
+                    if($prpPopd){
+                        $smsg = "MULTIPLE CONTEXTS RETURNED!`n$(($MGCntxt | fl $prpPopd|out-string).trim())" ;  
+                    }else{
+                           $smsg = "MULTIPLE CONTEXTS RETURNED!`n$(($MGCntxt | fl *|out-string).trim())" ;  
+                    }
                     if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
                     else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
                     # 12:57 PM 1/12/2026 loop the multis
@@ -457,7 +471,11 @@ Function connect-MG {
                         $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
                         $tobj = $MGCntxtX ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
                         $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
-                        $smsg += "Connected to:`n$(($MGCntxtX | fl $prpPopd|out-string).trim())"  ;
+                        if($prpPopd){
+                            $smsg += "Connected to:`n$(($MGCntxtX | fl $prpPopd|out-string).trim())"  ;
+                        }else{
+                            $smsg += "Connected to:`n$(($MGCntxtX | fl *|out-string).trim())"  ;
+                        }
                         if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
                         else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
                         $smsg = "`nScopes:$($MGCntxtX.scopes -join ', ')" ; 
@@ -470,7 +488,11 @@ Function connect-MG {
                     $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
                     $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
                     $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
-                    $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                    if($prpPopd){
+                        $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                    }else{
+                        $smsg += "Connected to:`n$(($MGCntxt | fl *|out-string).trim())"  ;
+                    }
                     if($silent){} else { 
                         if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
                         else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
@@ -560,7 +582,7 @@ Function connect-MG {
                         #break ; 
                         # 12:53 PM 1/13/2026 drop the break, this might be why retries don't work
                     }elseif($RequiredScopes){
-                    
+                        
                     }elseif($Path){
                         $pltgMGCP.add('Path',$Path) ; 
                     }elseif($scriptblock){
@@ -603,7 +625,11 @@ Function connect-MG {
                         $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
                         $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
                         $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
-                        $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                        if($prpPopd){
+                            $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                        }else{
+                            $smsg += ":NOT Connected to MGGraph"  ;
+                        }
                         if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
                         else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
                         $smsg = "`nScopes:$($MGCntxt.scopes -join ', ')" ; 
@@ -618,7 +644,11 @@ Function connect-MG {
                         $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
                         $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
                         $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
-                        $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                        if($prpPopd){
+                            $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                        }else{
+                           $smsg += "Connected to:`n$(($MGCntxt | fl *|out-string).trim())"  ;
+                        }
                         if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
                         else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
                         $smsg = "`nScopes:$($MGCntxt.scopes -join ', ')" ; 
@@ -632,7 +662,11 @@ Function connect-MG {
                             $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
                             $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
                             $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
-                            $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                            if($prpPopd){
+                                $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                            }else{
+                                $smsg += "Connected to:`n$(($MGCntxt | fl *|out-string).trim())"  ;
+                            }
                             if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
                             else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
                             $smsg = "`nScopes:$($MGCntxt.scopes -join ', ')" ; 
@@ -640,17 +674,29 @@ Function connect-MG {
                             else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
                         } ;                
                     } ; 
-                    if($pltCMG.keys -notcontains 'ClientId' -AND $pltCMG.keys -notcontains 'CertificateThumbprint' -AND $pltCMG.keys -notcontains 'AccountId'){
+                    #if($pltCMG.keys -notcontains 'ClientId' -AND $pltCMG.keys -notcontains 'CertificateThumbprint' -AND $pltCMG.keys -notcontains 'AccountId'){
+                    if($pltCMG.keys -notcontains 'ClientId' -AND $pltCMG.keys -notcontains 'CertificateThumbprint'){
                         # add UPN AccountID logon, if missing and non-CBA
-                        if($Credential.username -AND ($pltCMG.keys -notcontains 'AccountId') ){$pltCMG.add('AccountId',$Credential.username)} ;
+                        #if($Credential.username -AND ($pltCMG.keys -notcontains 'AccountId') ){$pltCMG.add('AccountId',$Credential.username)} ;
+                        # UNSUPPORTED connect-mggraph *has no* AccountID, UPN, or credential input, unless you preaquire a token and use -token, or use 
+                        # Connect-MgGraph -Scopes "User.Read.All","Group.ReadWrite.All" -UseDeviceAuthentication
+                        # (lets you sign in with the exact account you want, in a separate browser/device): removes the “account chooser” popup and lets you sign in as the desired user
+                        $smsg = "Using prompted interactive mode logon (hand pick user in gUI prompt)" ; 
+                        if($silent){} else { 
+                        if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
+                        else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
+                } ;     
                     } 
                 } ;
 
-                $smsg = "Connect-MgGraph w`n$(($pltCMG|out-string).trim())" ; 
+                #$smsg = "Connect-MgGraph w`n$(($pltCMG|out-string).trim())" ; 
+                #$smsg += "`nScopes: $(($pltCMG.scopes|out-string).trim())" ; 
+                $smsg = "Connect-MgGraph w`n$(($pltcmg.getenumerator() | ?{$_.name -ne 'scopes'} | ft -a | out-string|out-string).trim())" ; 
+                $smsg += "`n`n-Scopes:`n$(($pltCMG.scopes|out-string).trim())`n" ; 
                 if($silent){} else { 
                     if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
                     else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
-                } ;             
+                } ;
 
                 TRY {
                     $MGConnection = Connect-MgGraph @pltCMG ; 
@@ -672,7 +718,11 @@ Function connect-MG {
                                     $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
                                     $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
                                     $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
-                                    $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                                    if($prpPopd){
+                                        $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                                    }else{
+                                           $smsg += "Connected to:`n$(($MGCntxt | fl *|out-string).trim())"  ;
+                                    }
                                     if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } #Error|Warn|Debug 
                                     else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
                                     $smsg = "`nScopes:$($MGCntxt.scopes -join ', ')" ; 
@@ -749,7 +799,11 @@ Function connect-MG {
                     $smsg = "`n$($urolereturn.TenOrg):$($urolereturn.UserRole)" ;
                     $tobj = $MGCntxt ; $tprops = $prpGMGCTargets ; $prpPopd = @() ;
                     $tprops | %{   $thisprop = $_ ;    if($tobj| select -expand $thisprop){$prpPopd+=$thisprop }else{write-verbose "$($thisprop):N"} } ;
-                    $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                    if($prpPopd){
+                        $smsg += "Connected to:`n$(($MGCntxt | fl $prpPopd|out-string).trim())"  ;
+                    }else{
+                        $smsg += "Connected to:`n$(($MGCntxt | fl *|out-string).trim())"  ;
+                    }
                     if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level Info } 
                     else{ write-host -foregroundcolor green "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ;
                     #Levels:Error|Warn|Info|H1|H2|H3|H4|H5|Debug|Verbose|Prompt|Success
