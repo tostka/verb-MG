@@ -20,6 +20,8 @@
         AddedWebsite: URL
         AddedTwitter: URL
         REVISIONS
+        * 4:05 PM 3/27/2026 fixed not found lack of catch (crashed out), added test to trap and echo on it instead of throwing an error
+        * 2:40 PM 3/20/2026 replaced the mg connectivity with MG_CONNECT block
         * 5:26 PM 3/13/2026 -filter support is completely broken (throws error) ; replcd mg scaffold with simple test-mgconnection & connect-mg call; pulled in-loop connect-MG
         * 3:29 PM 1/6/2026 fixed mg ipmo ;  reworked $prpMGUser list, added items that are unpop'd propoerties, and pushed useful Additionalproperties from OnPrem, into expansion, updated CBH
         * 12:18 PM 12/10/2025 init
@@ -161,13 +163,23 @@
                         if($VerbosePreference -eq "Continue"){if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level VERBOSE } 
                         else{ write-verbose "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; } ; 
                         $MGUser = Get-MgUser -UserId $id -Property $prpMGUser -erroraction STOP ; 
-                    } CATCH {$ErrTrapd=$Error[0] ;
+                    } CATCH [System.Exception]{
+                        $ErrTrapd=$Error[0] ;
+                        if($ErrTrapd.Exception -match '\[ResourceNotFound]\s:\sUser\snot\sfound'){
+                            $smsg = "(Get-MgUser -UserId $($id) not found)" ; 
+                            if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
+                            else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
+                        }else{
+                            throw $ErrTrapd ; 
+                        }            
+                    } CATCH {
+                        $ErrTrapd=$Error[0] ;
                         write-host -foregroundcolor gray "TargetCatch:} CATCH [$($ErrTrapd.Exception.GetType().FullName)] {"  ;
                         $smsg = "`n$(($ErrTrapd | fl * -Force|out-string).trim())" ;
                         if ($logging) { Write-Log -LogContent $smsg -Path $logfile -useHost -Level WARN -Indent} 
                         else{ write-WARNING "$((get-date).ToString('HH:mm:ss')):$($smsg)" } ; 
                         CONTINUE
-                     } ;
+                    } ;
    
                     if($MGUser){
                         $MGUser | write-output ; 
