@@ -20,7 +20,7 @@ Function Resolve-ADUserToMGUserHardmatch{
     AddedWebsite: URL
     AddedTwitter: URL
     REVISIONS
-    * 11:13 AM 3/27/2026 init
+    * 11:54 AM 3/31/2026 init
     .DESCRIPTION
     Resolve-ADUserToMGUserHardmatch - Resolves ADUser to hardmatched MGUser, via conversion of ADUser.ObjectGuid to equivelent MGUser.OnPremisesImmutableId value
     
