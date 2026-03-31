@@ -20,6 +20,7 @@ Function Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid{
     AddedWebsite: URL
     AddedTwitter: URL
     REVISIONS
+    * 11:51 AM 3/31/2026 revised fail logic - OnpremImuutableID empty/$False/$null (whether cloud-first or not returned on mgu qry, is unqualified; no docs on defaults).
     * 11:51 AM 3/27/2026 init
     .DESCRIPTION
     Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid - Converts passed MGUser object (or OnPremisesImmutableId string) into equivelent ImmutableID/ADUser.ObjectGuid value
@@ -58,7 +59,21 @@ Function Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid{
     TRY{
         switch -regex ($InputObject.gettype().fullname){
             'Microsoft.Graph.PowerShell.Models.MicrosoftGraphUser|System.Collections.Hashtable|System.Management.Automation.PSCustomObject'{
-                if($InputObject.onPremisesImmutableId){$InputObject = $InputObject.onPremisesImmutableId }
+                if($InputObject.onPremisesImmutableId){
+                    $InputObject = $InputObject.onPremisesImmutableId 
+                }else{
+                    if($InputObject.onPremisesImmutableId -eq $null){
+                        $smsg = "MGUser object -eq `$null:" 
+                        $smsg += "`n EITHER: *lacks* populated onPremisesImmutableId!`n(Get-MgUser command DIDN'T SPECIFY REQUIRED -Property 'onPremisesImmutableId' to return working properties for this call)" ;
+                        $smsg += "`n OR: UNSET CLOUD-FIRST OBJECT (8408 cloud-1st mgus 03-2026 had `$null, only 5 had `$false)" ;
+                    }elseif($InputObject.onPremisesImmutableId -eq $false){
+                        $smsg = "MGUser object onPremisesImmutableId:`$false! EXPLICIT CLOUD-FIRST OBJECT!" ; 
+                    } ELSE{
+                            $smsg += "`nand has a NULL OnPremisesSyncEnabled" ;
+                            $smsg = "-> Get-MgUser command DIDN'T SPECIFY REQUIRED -Property onPremisesImmutableId TO RETURN WORKING PROPERTIES FOR THIS CALL!" ;                         
+                    }; 
+                    WRITE-WARNING  $SMSG
+                }
             }
             'System.String'{
                 #if($InputObject = [guid]$InputObject){}
@@ -70,8 +85,10 @@ Function Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid{
                 throw $smsg ; 
             }
         }
-        if($guid=New-Object -TypeName guid (,[System.Convert]::FromBase64String($InputObject)) ){
-            $guid.guid | write-output 
+        if($InputObject.gettype().fullname -eq 'System.String'){
+            if($guid=New-Object -TypeName guid (,[System.Convert]::FromBase64String($InputObject))){
+                $guid.guid | write-output                 
+            } else { $false | write-output }
         } else { $false | write-output }
     }CATCH {        
         $ErrTrapd=$Error[0] ;
