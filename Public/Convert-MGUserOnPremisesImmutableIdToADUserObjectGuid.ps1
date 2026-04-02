@@ -51,14 +51,15 @@ Function Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid{
     .LINK
     https://github.com/tostka/verb-MG
     #>
-    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'HIGH')]
+    [CmdletBinding()]
+    [alias('Convert-MGUserToADUser')]
     PARAM(        
         [Parameter(Mandatory=$True,ValueFromPipeline = $True,HelpMessage="MGUser object or MGUser.OnPremisesImmutableId string to be converte to ADUser ImmutableID/ObjectGuid[-InputObject `$myMGUser]")]
             $InputObject
     ) ;
     TRY{
         switch -regex ($InputObject.gettype().fullname){
-            'Microsoft.Graph.PowerShell.Models.MicrosoftGraphUser|System.Collections.Hashtable|System.Management.Automation.PSCustomObject'{
+            'Microsoft\.Graph\.PowerShell\.Models\.MicrosoftGraphUser|System\.Collections\.Hashtable|System\.Management\.Automation\.PSCustomObject'{
                 if($InputObject.onPremisesImmutableId){
                     $InputObject = $InputObject.onPremisesImmutableId 
                 }else{
@@ -75,7 +76,7 @@ Function Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid{
                     WRITE-WARNING  $SMSG
                 }
             }
-            'System.String'{
+            'System\.String'{
                 #if($InputObject = [guid]$InputObject){}
             }
             default{

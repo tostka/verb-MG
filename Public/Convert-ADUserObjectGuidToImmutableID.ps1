@@ -57,13 +57,13 @@ Function Convert-ADUserObjectGuidToImmutableID{
     ) ;
     TRY{
         switch -regex ($InputObject.gettype().fullname){
-            'Microsoft.ActiveDirectory.Management.ADUser|System.Collections.Hashtable|System.Management.Automation.PSCustomObject'{
+            'Microsoft\.ActiveDirectory\.Management\.ADUser|System\.Collections\.Hashtable|System\.Management\.Automation\.PSCustomObject'{
                 if($InputObject.objectguid){$InputObject = $InputObject.objectguid }
             }
-            'System.Guid'{
+            'System\.Guid'{
                 if($InputObject.guid){}
             }
-            'System.String'{
+            'System\.String'{
                 if($InputObject = [guid]$InputObject){}
             }
             default{
