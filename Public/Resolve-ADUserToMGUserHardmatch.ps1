@@ -27,7 +27,7 @@ Function Resolve-ADUserToMGUserHardmatch{
     Extension of verb-mb\Convert-ADUserObjectGuidToImmutableID that appends trailing get-mguser to the end, and returns the matching mgUser object (rather than the converted immutable string)
 
     .PARAMETER InputObject
-    ADUser object or ADUser.ObjectGuid string to be converte to cloud ImmutableID[-InputObject `$myADUser]
+    ADUser object or ADUser.ObjectGuid string to be converted to cloud ImmutableID[-InputObject `$myADUser]
     .INPUTS
     Accepts piped input
     .OUTPUTS
@@ -50,13 +50,13 @@ Function Resolve-ADUserToMGUserHardmatch{
     ) ;
     TRY{
         switch -regex ($InputObject.gettype().fullname){
-            'Microsoft.ActiveDirectory.Management.ADUser|System.Collections.Hashtable|System.Management.Automation.PSCustomObject'{
+            'Microsoft\.ActiveDirectory\.Management\.ADUser|System\.Collections\.Hashtable|System\.Management\.Automation\.PSCustomObject'{
                 if($InputObject.objectguid){$InputObject = $InputObject.objectguid }
             }
-            'System.Guid'{
+            'System\.Guid'{
                 if($InputObject.guid){}
             }
-            'System.String'{
+            'System\.String'{
                 if($InputObject = [guid]$InputObject){}
             }
             default{

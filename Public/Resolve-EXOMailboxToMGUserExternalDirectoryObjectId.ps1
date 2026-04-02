@@ -22,12 +22,12 @@ Function Resolve-EXOMailboxToMGUserExternalDirectoryObjectId{
     REVISIONS
     * 12:50 PM 3/31/2026init
     .DESCRIPTION
-    Resolve-EXOMailboxToMGUserExternalDirectoryObjectId - Resolves and Exchange Online Mailbox object (or it's ExternalDirectoryObjectId guid) to the linked MGUser
+    Resolve-EXOMailboxToMGUserExternalDirectoryObjectId - Resolves an Exchange Online Mailbox object (or it's ExternalDirectoryObjectId guid) to the linked MGUser
 
     Represents the actual low-level linked objects, rather than those with the same UPN or other descriptor (where Hybrid Conflicts may result in multiple splitbrain mailboxes respectively on ADUser and MGUser).
 
     .PARAMETER InputObject
-    MGUser object or MGUser.OnPremisesImmutableId string to be converted to ADUser ImmutableID/ObjectGuid[-InputObject `$myMGUser]
+    Exchange Online Mailbox object or Mailbox.ExternalDirectoryObjectId string to be converted to ADUser ImmutableID/ObjectGuid[-InputObject `$myMGUser]
     .INPUTS
     Accepts piped input
     .OUTPUTS
@@ -46,7 +46,7 @@ Function Resolve-EXOMailboxToMGUserExternalDirectoryObjectId{
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'HIGH')]
     [Alias('Resolve-EXOMailboxToMGUser')]
     PARAM(        
-        [Parameter(Mandatory=$True,Position=0,ValueFromPipeline = $True,HelpMessage="Exchange Online Mailbox object (or it's ExternalDirectoryObjectId guid string) to be resolved to matching MGUser object[-InputObject `$myExoMailbox]")]
+        [Parameter(Mandatory=$True,Position=0,ValueFromPipeline = $True,HelpMessage="Exchange Online Mailbox object or Mailbox.ExternalDirectoryObjectId string to be converted to ADUser ImmutableID/ObjectGuid[-InputObject `$myMGUser]")]
             $InputObject
     ) ;
     TRY{
@@ -66,7 +66,7 @@ Function Resolve-EXOMailboxToMGUserExternalDirectoryObjectId{
                     WRITE-WARNING  $SMSG
                 }
             }
-            'System.String'{
+            'System\.String'{
                 #if($InputObject = [guid]$InputObject){}
             }
             default{

@@ -12,7 +12,7 @@
 RootModule = 'verb-MG.psm1'
 
 # Version number of this module.
-ModuleVersion = '4.1.0'
+ModuleVersion = '4.2.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -69,7 +69,7 @@ Description = 'MS Graph module-related functions'
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = @('add-MGUserLicense','connect-MG','push-TLSLatest','Convert-ADUserObjectGuidToImmutableID','Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid','Disconnect-MG','get-MGCodeCmdletPermissionsTDO','get-MGLicenseFullName','get-MGLicensePlanlist','get-MGOPLastSync','get-MgUserFull','get-MgUserLicenseDetailTDO','remove-MGUserLicense','set-MGUserUsageLocation','test-MGConnectionTDOTDO','test-MGUserIsLicensed','toggle-MGUDLicense','Remove-InvalidVariableNameChars','2b4','2b4c','fb4','Wait-MGOPSync')
+FunctionsToExport = @('add-MGUserLicense','connect-MG','push-TLSLatest','Convert-ADUserObjectGuidToImmutableID','Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid','Disconnect-MG','get-MGCodeCmdletPermissionsTDO','get-MGLicenseFullName','get-MGLicensePlanlist','get-MGOPLastSync','get-MgUserFull','get-MgUserLicenseDetailTDO','remove-MGUserLicense','Resolve-ADUserToMGUserHardmatch','Resolve-EXOMailboxToMGUserExternalDirectoryObjectId','Resolve-MGUserToADUserHardmatch','set-MGUserUsageLocation','test-MGConnectionTDOTDO','test-MGUserIsLicensed','toggle-MGUDLicense','Remove-InvalidVariableNameChars','2b4','2b4c','fb4','Wait-MGOPSync')
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = '*'
@@ -129,8 +129,8 @@ PrivateData = @{
 # SIG # Begin signature block
 # MIIELgYJKoZIhvcNAQcCoIIEHzCCBBsCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQURk/h/TcxcLNRvXKj6tDgpULc
-# UmqgggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUrK5vf+GVDM4cWaw5B3Idg/dj
+# rOOgggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
 # MCwxKjAoBgNVBAMTIVBvd2VyU2hlbGwgTG9jYWwgQ2VydGlmaWNhdGUgUm9vdDAe
 # Fw0xNDEyMjkxNzA3MzNaFw0zOTEyMzEyMzU5NTlaMBUxEzARBgNVBAMTClRvZGRT
 # ZWxmSUkwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBALqRVt7uNweTkZZ+16QG
@@ -145,10 +145,10 @@ PrivateData = @{
 # AWAwggFcAgEBMEAwLDEqMCgGA1UEAxMhUG93ZXJTaGVsbCBMb2NhbCBDZXJ0aWZp
 # Y2F0ZSBSb290AhBaydK0VS5IhU1Hy6E1KUTpMAkGBSsOAwIaBQCgeDAYBgorBgEE
 # AYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwG
-# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSQppM/
-# tIdWJPxTxCraQg3OJ+u0vzANBgkqhkiG9w0BAQEFAASBgK1Yo0WiLaXlmJErmCS0
-# mcKDEOLXfHdCGnYNeZ/sbm7MB/vEJMzpard51KjeO03xUo+I7YRkTDLFxBZdhwf9
-# AntVRSP8ylACKlKtxBph7mZb+x119cK21oiHNkcVsNcVkPlsDdiTbji7wSN001UO
-# 91sW2Vs6iuwVoIUeX7TSI0LY
+# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRcRUs/
+# UScFMp2eIaNDG3v5buAlvDANBgkqhkiG9w0BAQEFAASBgLcJz3NIxhelAd0daNp6
+# p/ufgNd3pp05CgIvSOKcYB/TAmiryuSM7GAJI2ekHNuv8jpth6RyL16pVjR14kYO
+# g0E2YuSYpkwEXxSO8J4qpx+foO8e6bSwBXxWM6JHsfstCJX09QGuyJFv7sWuZPHl
+# vZA4R5+7/C/5YaIePz+gGrGV
 # SIG # End signature block
 

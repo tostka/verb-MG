@@ -5,7 +5,7 @@
   .SYNOPSIS
   verb-MG - MS Graph module-related functions
   .NOTES
-    Version     : 4.1.0
+    Version     : 4.2.0
   Author      : Todd Kadrie
   Website     :	https://www.toddomation.com
   Twitter     :	@tostka
@@ -18,7 +18,7 @@
   AddedWebsite:	REFERENCEURL
   AddedTwitter:	@HANDLE / http://twitter.com/HANDLE
   REVISIONS
-  * 5/14/2025 - 4.1.0.0
+  * 5/14/2025 - 4.2.0.0
   .DESCRIPTION
   verb-MG - MS Graph module-related functions
   .PARAMETER  PARAMNAME
@@ -1545,13 +1545,13 @@ Function Convert-ADUserObjectGuidToImmutableID{
     ) ;
     TRY{
         switch -regex ($InputObject.gettype().fullname){
-            'Microsoft.ActiveDirectory.Management.ADUser|System.Collections.Hashtable|System.Management.Automation.PSCustomObject'{
+            'Microsoft\.ActiveDirectory\.Management\.ADUser|System\.Collections\.Hashtable|System\.Management\.Automation\.PSCustomObject'{
                 if($InputObject.objectguid){$InputObject = $InputObject.objectguid }
             }
-            'System.Guid'{
+            'System\.Guid'{
                 if($InputObject.guid){}
             }
-            'System.String'{
+            'System\.String'{
                 if($InputObject = [guid]$InputObject){}
             }
             default{
@@ -1595,6 +1595,7 @@ Function Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid{
     AddedWebsite: URL
     AddedTwitter: URL
     REVISIONS
+    * 11:51 AM 3/31/2026 revised fail logic - OnpremImuutableID empty/$False/$null (whether cloud-first or not returned on mgu qry, is unqualified; no docs on defaults).
     * 11:51 AM 3/27/2026 init
     .DESCRIPTION
     Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid - Converts passed MGUser object (or OnPremisesImmutableId string) into equivelent ImmutableID/ADUser.ObjectGuid value
@@ -1625,17 +1626,32 @@ Function Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid{
     .LINK
     https://github.com/tostka/verb-MG
     #>
-    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'HIGH')]
+    [CmdletBinding()]
+    [alias('Convert-MGUserToADUser')]
     PARAM(        
         [Parameter(Mandatory=$True,ValueFromPipeline = $True,HelpMessage="MGUser object or MGUser.OnPremisesImmutableId string to be converte to ADUser ImmutableID/ObjectGuid[-InputObject `$myMGUser]")]
             $InputObject
     ) ;
     TRY{
         switch -regex ($InputObject.gettype().fullname){
-            'Microsoft.Graph.PowerShell.Models.MicrosoftGraphUser|System.Collections.Hashtable|System.Management.Automation.PSCustomObject'{
-                if($InputObject.onPremisesImmutableId){$InputObject = $InputObject.onPremisesImmutableId }
+            'Microsoft\.Graph\.PowerShell\.Models\.MicrosoftGraphUser|System\.Collections\.Hashtable|System\.Management\.Automation\.PSCustomObject'{
+                if($InputObject.onPremisesImmutableId){
+                    $InputObject = $InputObject.onPremisesImmutableId 
+                }else{
+                    if($InputObject.onPremisesImmutableId -eq $null){
+                        $smsg = "MGUser object -eq `$null:" 
+                        $smsg += "`n EITHER: *lacks* populated onPremisesImmutableId!`n(Get-MgUser command DIDN'T SPECIFY REQUIRED -Property 'onPremisesImmutableId' to return working properties for this call)" ;
+                        $smsg += "`n OR: UNSET CLOUD-FIRST OBJECT (8408 cloud-1st mgus 03-2026 had `$null, only 5 had `$false)" ;
+                    }elseif($InputObject.onPremisesImmutableId -eq $false){
+                        $smsg = "MGUser object onPremisesImmutableId:`$false! EXPLICIT CLOUD-FIRST OBJECT!" ; 
+                    } ELSE{
+                            $smsg += "`nand has a NULL OnPremisesSyncEnabled" ;
+                            $smsg = "-> Get-MgUser command DIDN'T SPECIFY REQUIRED -Property onPremisesImmutableId TO RETURN WORKING PROPERTIES FOR THIS CALL!" ;                         
+                    }; 
+                    WRITE-WARNING  $SMSG
+                }
             }
-            'System.String'{
+            'System\.String'{
                 #if($InputObject = [guid]$InputObject){}
             }
             default{
@@ -1645,8 +1661,10 @@ Function Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid{
                 throw $smsg ; 
             }
         }
-        if($guid=New-Object -TypeName guid (,[System.Convert]::FromBase64String($InputObject)) ){
-            $guid.guid | write-output 
+        if($InputObject.gettype().fullname -eq 'System.String'){
+            if($guid=New-Object -TypeName guid (,[System.Convert]::FromBase64String($InputObject))){
+                $guid.guid | write-output                 
+            } else { $false | write-output }
         } else { $false | write-output }
     }CATCH {        
         $ErrTrapd=$Error[0] ;
@@ -2787,11 +2805,11 @@ function get-MgUserFull{
         #-=-=-=-=-=-=-=-=
         WARNING: 17:25:29:
         PSMessageDetails      :
-        Exception             : System.Exception: [-1, Microsoft.SharePoint.Client.InvalidClientQueryException] : The expression "id in ('4.1.0f19-5140-435c-92a4-4d3b45db1866')" is not valid.
+        Exception             : System.Exception: [-1, Microsoft.SharePoint.Client.InvalidClientQueryException] : The expression "id in ('4b0f0f19-5140-435c-92a4-4d3b45db1866')" is not valid.
         TargetObject          : { ConsistencyLevel = , Top = , Search = , Filter = UserPrincipalName eq 'aaaa.aaaaaa@aaaa.aaa', Count = , Sort = , Property = System.String[], ExpandProperty = , Headers =  }
         CategoryInfo          : InvalidOperation: ({ ConsistencyLe... , Headers =  }:<>f__AnonymousType48`9) [Get-MgUser_List], Exception
         FullyQualifiedErrorId : -1, Microsoft.SharePoint.Client.InvalidClientQueryException,Microsoft.Graph.PowerShell.Cmdlets.GetMgUser_List
-        ErrorDetails          : The expression "id in ('4.1.0f19-5140-435c-92a4-4d3b45db1866')" is not valid.
+        ErrorDetails          : The expression "id in ('4b0f0f19-5140-435c-92a4-4d3b45db1866')" is not valid.
                                 Status: 400 (BadRequest)
                                 ErrorCode: -1, Microsoft.SharePoint.Client.InvalidClientQueryException
                                 Date: 2026-03-13T22:25:23
@@ -3761,6 +3779,291 @@ function remove-MGUserLicense {
 }
 
 #*------^ remove-MGUserLicense.ps1 ^------
+
+
+#*------v Resolve-ADUserToMGUserHardmatch.ps1 v------
+Function Resolve-ADUserToMGUserHardmatch{
+    <#
+    .SYNOPSIS
+    Resolve-ADUserToMGUserHardmatch - Resolves ADUser to hardmatched MGUser, via conversion of ADUser.ObjectGuid to equivelent MGUser.OnPremisesImmutableId value
+    .NOTES
+    Version     : 0.0.1
+    Author      : Todd Kadrie
+    Website     : http://www.toddomation.com
+    Twitter     : @tostka / http://twitter.com/tostka
+    CreatedDate : 2026-03-27
+    FileName    : Resolve-ADUserToMGUserHardmatch.ps1
+    License     : MIT License
+    Copyright   : (c) 2026 Todd Kadrie
+    Github      : https://github.com/tostka/verb-mg
+    Tags        : Powershell,MicrosoftGraph,User,HardMatch,ImmutableID
+    AddedCredit : REFERENCE
+    AddedWebsite: URL
+    AddedTwitter: URL
+    REVISIONS
+    * 11:54 AM 3/31/2026 init
+    .DESCRIPTION
+    Resolve-ADUserToMGUserHardmatch - Resolves ADUser to hardmatched MGUser, via conversion of ADUser.ObjectGuid to equivelent MGUser.OnPremisesImmutableId value
+    
+    Extension of verb-mb\Convert-ADUserObjectGuidToImmutableID that appends trailing get-mguser to the end, and returns the matching mgUser object (rather than the converted immutable string)
+
+    .PARAMETER InputObject
+    ADUser object or ADUser.ObjectGuid string to be converted to cloud ImmutableID[-InputObject `$myADUser]
+    .INPUTS
+    Accepts piped input
+    .OUTPUTS
+    Microsoft.Graph.PowerShell.Models.MicrosoftGraphUser
+    .EXAMPLE
+    PS> $adu = get-aduser -id SAMACCOUNTNAME ;
+    PS> $adu | Resolve-ADUserToMGUserHardmatch ; 
+    Pipeline demo
+    .EXAMPLE
+    PS> $adu = get-aduser -id SAMACCOUNTNAME ;
+    PS> Resolve-ADUserToMGUserHardmatch -inputobject $adu; 
+    Commandline demo ADUser input    
+    .LINK
+    https://github.com/tostka/verb-MG
+    #>
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'HIGH')]
+    PARAM(        
+        [Parameter(Mandatory=$True,ValueFromPipeline = $True,HelpMessage="ADUser object or ADUser.ObjectGuid string to be converte to cloud ImmutableID[-InputObject `$myADUser]")]
+            $InputObject
+    ) ;
+    TRY{
+        switch -regex ($InputObject.gettype().fullname){
+            'Microsoft\.ActiveDirectory\.Management\.ADUser|System\.Collections\.Hashtable|System\.Management\.Automation\.PSCustomObject'{
+                if($InputObject.objectguid){$InputObject = $InputObject.objectguid }
+            }
+            'System\.Guid'{
+                if($InputObject.guid){}
+            }
+            'System\.String'{
+                if($InputObject = [guid]$InputObject){}
+            }
+            default{
+                $smsg = "UNRECOGNIZED -inputobject type:$($InputObject.gettype().fullname)" ; 
+                $smsg += "`nPlease specify an ADUser object, or a Guid value" ;
+                write-warning $smsg ;
+                throw $smsg ; 
+            }
+        }
+        if($OpImmutableId = [System.Convert]::ToBase64String($InputObject.ToByteArray())){
+            #$OpImmutableId| write-output             
+            if($mgUser = Get-MgUser -Filter "onPremisesImmutableId eq '$OpImmutableId'"){
+                $mgUser  | write-output  ; 
+            }else{
+                $false | write-output 
+            } ; 
+        } else { $false | write-output }
+    }CATCH {        
+        $ErrTrapd=$Error[0] ;
+        write-host -foregroundcolor gray "TargetCatch:} CATCH [$($ErrTrapd.Exception.GetType().FullName)] {"  ;
+        $smsg = "`n$(($ErrTrapd | fl * -Force|out-string).trim())" ;
+        write-warning "$($smsg)" ;
+    }
+}
+
+#*------^ Resolve-ADUserToMGUserHardmatch.ps1 ^------
+
+
+#*------v Resolve-EXOMailboxToMGUserExternalDirectoryObjectId.ps1 v------
+Function Resolve-EXOMailboxToMGUserExternalDirectoryObjectId{
+    <#
+    .SYNOPSIS
+    Resolve-EXOMailboxToMGUserExternalDirectoryObjectId - Resolves and Exchange Online Mailbox object (or it's ExternalDirectoryObjectId guid) to the linked MGUser
+    .NOTES
+    Version     : 0.0.1
+    Author      : Todd Kadrie
+    Website     : http://www.toddomation.com
+    Twitter     : @tostka / http://twitter.com/tostka
+    CreatedDate : 2026-03-31
+    FileName    : Resolve-EXOMailboxToMGUserExternalDirectoryObjectId.ps1
+    License     : MIT License
+    Copyright   : (c) 2026 Todd Kadrie
+    Github      : https://github.com/tostka/verb-mg
+    Tags        : Powershell,MicrosoftGraph,User,HardMatch,ImmutableID
+    AddedCredit : REFERENCE
+    AddedWebsite: URL
+    AddedTwitter: URL
+    REVISIONS
+    * 12:50 PM 3/31/2026init
+    .DESCRIPTION
+    Resolve-EXOMailboxToMGUserExternalDirectoryObjectId - Resolves an Exchange Online Mailbox object (or it's ExternalDirectoryObjectId guid) to the linked MGUser
+
+    Represents the actual low-level linked objects, rather than those with the same UPN or other descriptor (where Hybrid Conflicts may result in multiple splitbrain mailboxes respectively on ADUser and MGUser).
+
+    .PARAMETER InputObject
+    Exchange Online Mailbox object or Mailbox.ExternalDirectoryObjectId string to be converted to ADUser ImmutableID/ObjectGuid[-InputObject `$myMGUser]
+    .INPUTS
+    Accepts piped input
+    .OUTPUTS
+    Microsoft.ActiveDirectory.Management.ADUser
+    .EXAMPLE
+    PS> $xoMbx = get-xomailbox TARGETUPN ; 
+    PS> $mgu = $XOmBX | Resolve-EXOMailboxToMGUserExternalDirectoryObjectId ;     
+    Pipeline demo
+    .EXAMPLE
+    PS> $mgu = Get-MgUser -user TARGETUPN -prop onPremisesImmutableId,userprincipalname,id ; 
+    PS> Resolve-EXOMailboxToMGUserExternalDirectoryObjectId -inputobject $mgu; 
+    Commandline demo MGUser input    
+    .LINK
+    https://github.com/tostka/verb-MG
+    #>
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'HIGH')]
+    [Alias('Resolve-EXOMailboxToMGUser')]
+    PARAM(        
+        [Parameter(Mandatory=$True,Position=0,ValueFromPipeline = $True,HelpMessage="Exchange Online Mailbox object or Mailbox.ExternalDirectoryObjectId string to be converted to ADUser ImmutableID/ObjectGuid[-InputObject `$myMGUser]")]
+            $InputObject
+    ) ;
+    TRY{
+        switch -regex ($InputObject.gettype().fullname){
+            'System\.Management\.Automation\.PSObject|System\.Collections\.Hashtable|System\.Management\.Automation\.PSCustomObject'{                
+                if($InputObject.ExternalDirectoryObjectId){
+                    $InputObject = $InputObject.ExternalDirectoryObjectId 
+                }else{
+                    if($InputObject.ExternalDirectoryObjectId -eq $null){
+                        $smsg = "Mailbox.ExternalDirectoryObjectId: `$null:"                         
+                    }elseif($InputObject.ExternalDirectoryObjectId -eq $false){
+                        $smsg = "Mailbox.ExternalDirectoryObjectId:`$false" ; 
+                    } ELSE{
+                            $smsg += "`nand has a NULL OnPremisesSyncEnabled" ;
+                            $smsg = "-> Get-MgUser command DIDN'T SPECIFY REQUIRED -Property ExternalDirectoryObjectId TO RETURN WORKING PROPERTIES FOR THIS CALL!" ;                         
+                    }; 
+                    WRITE-WARNING  $SMSG
+                }
+            }
+            'System\.String'{
+                #if($InputObject = [guid]$InputObject){}
+            }
+            default{
+                $smsg = "UNRECOGNIZED -inputobject type:$($InputObject.gettype().fullname)" ; 
+                $smsg += "`nPlease specify an ADUser object, or a Guid value" ;
+                write-warning $smsg ;
+                #throw $smsg ; 
+            }
+        }
+        if($InputObject.gettype().fullname -eq 'System.String'){
+            if($Mgu = Get-MgUser -userid $InputObject){
+                $Mgu| write-output  ; 
+            }else{
+                $false | write-output 
+            } ; 
+        } else { $false | write-output }        
+    }CATCH {        
+        $ErrTrapd=$Error[0] ;
+        write-host -foregroundcolor gray "TargetCatch:} CATCH [$($ErrTrapd.Exception.GetType().FullName)] {"  ;
+        $smsg = "`n$(($ErrTrapd | fl * -Force|out-string).trim())" ;
+        write-warning "$($smsg)" ;
+    }
+}
+
+#*------^ Resolve-EXOMailboxToMGUserExternalDirectoryObjectId.ps1 ^------
+
+
+#*------v Resolve-MGUserToADUserHardmatch.ps1 v------
+Function Resolve-MGUserToADUserHardmatch{
+    <#
+    .SYNOPSIS
+    Resolve-MGUserToADUserHardmatch - ResolvesMGUser to hardmatched ADUser, via conversion of MGUser.OnPremisesImmutableId to equivelent ADUser.ObjectGuid value
+    .NOTES
+    Version     : 0.0.1
+    Author      : Todd Kadrie
+    Website     : http://www.toddomation.com
+    Twitter     : @tostka / http://twitter.com/tostka
+    CreatedDate : 2026-03-31
+    FileName    : Resolve-MGUserToADUserHardmatch.ps1
+    License     : MIT License
+    Copyright   : (c) 2026 Todd Kadrie
+    Github      : https://github.com/tostka/verb-mg
+    Tags        : Powershell,MicrosoftGraph,User,HardMatch,ImmutableID
+    AddedCredit : REFERENCE
+    AddedWebsite: URL
+    AddedTwitter: URL
+    REVISIONS
+    9:15 AM 3/31/2026 init
+    .DESCRIPTION
+    Resolve-MGUserToADUserHardmatch - ResolvesMGUser to hardmatched ADUser, via conversion of MGUser.OnPremisesImmutableId to equivelent ADUser.ObjectGuid value
+    
+    Extension of verb-mb\Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid that appends trailing get-aduser to the end, and returns the matching ADUser object (rather than the converted immutable string)
+    
+    .PARAMETER InputObject
+    MGUser object or MGUser.OnPremisesImmutableId string to be converted to ADUser ImmutableID/ObjectGuid[-InputObject `$myMGUser]
+    .INPUTS
+    Accepts piped input
+    .OUTPUTS
+    Microsoft.ActiveDirectory.Management.ADUser
+    .EXAMPLE
+    PS> $mgu = Get-MgUser -user TARGETUPN -prop onPremisesImmutableId,userprincipalname,id ; 
+    PS> $mgu | Resolve-MGUserToADUserHardmatch ;     
+    Pipeline demo
+    .EXAMPLE
+    PS> $mgu = Get-MgUser -user TARGETUPN -prop onPremisesImmutableId,userprincipalname,id ; 
+    PS> Resolve-MGUserToADUserHardmatch -inputobject $mgu; 
+    Commandline demo MGUser input    
+    .LINK
+    https://github.com/tostka/verb-MG
+    #>
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'HIGH')]
+    PARAM(        
+        [Parameter(Mandatory=$True,Position=0,ValueFromPipeline = $True,HelpMessage="MGUser object or MGUser.OnPremisesImmutableId string to be converte to ADUser ImmutableID/ObjectGuid[-InputObject `$myMGUser]")]
+            $InputObject
+    ) ;
+    TRY{
+        switch -regex ($InputObject.gettype().fullname){
+            'Microsoft.Graph.PowerShell.Models.MicrosoftGraphUser|System.Collections.Hashtable|System.Management.Automation.PSCustomObject'{
+                <#
+                switch ($InputObject.OnPremisesSyncEnabled) {
+                    $true  { "Directory-synced user" }
+                    $false { "Cloud-only user" }
+                    $null  { "Property not returned (query incomplete)" } # not accurate in our Tenant: bulk of cloud-firsts have $null, not $false
+                }
+                #>
+                if($InputObject.onPremisesImmutableId){
+                    $InputObject = $InputObject.onPremisesImmutableId 
+                }else{
+                    if($InputObject.onPremisesImmutableId -eq $null){
+                        $smsg = "MGUser object -eq `$null:" 
+                        $smsg += "`n EITHER: *lacks* populated onPremisesImmutableId!`n(Get-MgUser command DIDN'T SPECIFY REQUIRED -Property 'onPremisesImmutableId' to return working properties for this call)" ;
+                        $smsg += "`n OR: UNSET CLOUD-FIRST OBJECT (8408 cloud-1st mgus 03-2026 had `$null, only 5 had `$false)" ;
+                    }elseif($InputObject.onPremisesImmutableId -eq $false){
+                        $smsg = "MGUser object onPremisesImmutableId:`$false! EXPLICIT CLOUD-FIRST OBJECT!" ; 
+                    } ELSE{
+                            $smsg += "`nand has a NULL OnPremisesSyncEnabled" ;
+                            $smsg = "-> Get-MgUser command DIDN'T SPECIFY REQUIRED -Property onPremisesImmutableId TO RETURN WORKING PROPERTIES FOR THIS CALL!" ;                         
+                    }; 
+                    WRITE-WARNING  $SMSG
+                }
+            }
+            'System.String'{
+                #if($InputObject = [guid]$InputObject){}
+            }
+            default{
+                $smsg = "UNRECOGNIZED -inputobject type:$($InputObject.gettype().fullname)" ; 
+                $smsg += "`nPlease specify an ADUser object, or a Guid value" ;
+                write-warning $smsg ;
+                #throw $smsg ; 
+            }
+        }
+        if($InputObject.gettype().fullname -eq 'System.String'){
+            if($guid=New-Object -TypeName guid (,[System.Convert]::FromBase64String($InputObject))){
+                #$guid.guid | write-output 
+                $ImmutGuid = $guid
+                if($ADUser = get-aduser -id $ImmutGuid.guid ){
+                    $ADUser | write-output  ; 
+                }else{
+                    $false | write-output 
+                } ; 
+            } else { $false | write-output }
+        } else { $false | write-output }
+    }CATCH {        
+        $ErrTrapd=$Error[0] ;
+        write-host -foregroundcolor gray "TargetCatch:} CATCH [$($ErrTrapd.Exception.GetType().FullName)] {"  ;
+        $smsg = "`n$(($ErrTrapd | fl * -Force|out-string).trim())" ;
+        write-warning "$($smsg)" ;
+    }
+}
+
+#*------^ Resolve-MGUserToADUserHardmatch.ps1 ^------
 
 
 #*------v set-MGUserUsageLocation.ps1 v------
@@ -5842,7 +6145,7 @@ Function Wait-MGOPSync {
 
 #*======^ END FUNCTIONS ^======
 
-Export-ModuleMember -Function add-MGUserLicense,connect-MG,push-TLSLatest,Convert-ADUserObjectGuidToImmutableID,Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid,Disconnect-MG,get-MGCodeCmdletPermissionsTDO,get-MGLicenseFullName,get-MGLicensePlanlist,get-MGOPLastSync,get-MgUserFull,get-MgUserLicenseDetailTDO,remove-MGUserLicense,set-MGUserUsageLocation,test-MGConnectionTDOTDO,test-MGUserIsLicensed,toggle-MGUDLicense,Remove-InvalidVariableNameChars,2b4,2b4c,fb4,Wait-MGOPSync -Alias *
+Export-ModuleMember -Function add-MGUserLicense,connect-MG,push-TLSLatest,Convert-ADUserObjectGuidToImmutableID,Convert-MGUserOnPremisesImmutableIdToADUserObjectGuid,Disconnect-MG,get-MGCodeCmdletPermissionsTDO,get-MGLicenseFullName,get-MGLicensePlanlist,get-MGOPLastSync,get-MgUserFull,get-MgUserLicenseDetailTDO,remove-MGUserLicense,Resolve-ADUserToMGUserHardmatch,Resolve-EXOMailboxToMGUserExternalDirectoryObjectId,Resolve-MGUserToADUserHardmatch,set-MGUserUsageLocation,test-MGConnectionTDOTDO,test-MGUserIsLicensed,toggle-MGUDLicense,Remove-InvalidVariableNameChars,2b4,2b4c,fb4,Wait-MGOPSync -Alias *
 
 
 
@@ -5850,8 +6153,8 @@ Export-ModuleMember -Function add-MGUserLicense,connect-MG,push-TLSLatest,Conver
 # SIG # Begin signature block
 # MIIELgYJKoZIhvcNAQcCoIIEHzCCBBsCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUvvFHgydZuS8aVW4tZUBHgZ7I
-# UyqgggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQURYbsJ9hMGEH9R6BvN1hGSf5s
+# piagggI4MIICNDCCAaGgAwIBAgIQWsnStFUuSIVNR8uhNSlE6TAJBgUrDgMCHQUA
 # MCwxKjAoBgNVBAMTIVBvd2VyU2hlbGwgTG9jYWwgQ2VydGlmaWNhdGUgUm9vdDAe
 # Fw0xNDEyMjkxNzA3MzNaFw0zOTEyMzEyMzU5NTlaMBUxEzARBgNVBAMTClRvZGRT
 # ZWxmSUkwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBALqRVt7uNweTkZZ+16QG
@@ -5866,9 +6169,9 @@ Export-ModuleMember -Function add-MGUserLicense,connect-MG,push-TLSLatest,Conver
 # AWAwggFcAgEBMEAwLDEqMCgGA1UEAxMhUG93ZXJTaGVsbCBMb2NhbCBDZXJ0aWZp
 # Y2F0ZSBSb290AhBaydK0VS5IhU1Hy6E1KUTpMAkGBSsOAwIaBQCgeDAYBgorBgEE
 # AYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwG
-# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRLU3Mi
-# ugZdSmaQ1emrUkm+vR8b3DANBgkqhkiG9w0BAQEFAASBgHO11xYILgesNzhX58Dg
-# zTf5DO8Dx85LrEPzxkjr5MEsX1OEPyHOPDzwHCNMsLO7vX1MWVRm42t/gfpMv8cm
-# hiG9obWWTUK7KT4/dSSHSOeQ4pKJyHrRyjzxQpV8/mIE0BPMXVhVmBAYHDQsSZ5t
-# YZJHnhyOogpaqlEG5RIRirra
+# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRTphfp
+# sKp8hdd3CprA47ff/iTTATANBgkqhkiG9w0BAQEFAASBgJbAWwx9iMVOUc1aOKOL
+# WOpgj61u5ZYfrmHw83P+FXMPI8BxLtTAuFz3LmH6Tde9fM6cjDskCUydLDeWJcp0
+# lkvxJXy6BugwJXbiLiC41h8UF/6kxaWTvIwUzJkJR6KKDj8xGcn8Gt5drxHW1eGs
+# D3lcr9waFhPnCyoy2Fa5ugvW
 # SIG # End signature block
